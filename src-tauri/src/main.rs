@@ -1,0 +1,1 @@
+fn main() { word_batch_tauri_lib::run(); }
