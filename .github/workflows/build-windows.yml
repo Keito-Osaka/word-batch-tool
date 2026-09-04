@@ -1,31 +1,58 @@
 name: Windows build
+
 on:
   workflow_dispatch:
+
 permissions:
   contents: read
+
 jobs:
   build:
     runs-on: windows-latest
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with: { python-version: '3.13', cache: 'pip', cache-dependency-path: 'python/requirements.txt' }
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+          cache-dependency-path: 'python/requirements.txt'
+
       - name: Build Python backend
         shell: pwsh
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r python/requirements.txt
+
           Push-Location python
           python -m PyInstaller --clean --noconfirm bridge.spec
           Pop-Location
-          New-Item -ItemType Directory -Force src-tauri/resources/backend | Out-Null
-          Copy-Item python/dist/word-batch-backend/* src-tauri/resources/backend/ -Recurse -Force
-      - uses: actions/setup-node@v4
-        with: { node-version: '22', cache: 'npm' }
+
+          New-Item -ItemType Directory `
+            -Force `
+            src-tauri/resources/backend |
+            Out-Null
+
+          Copy-Item `
+            python/dist/word-batch-backend/* `
+            src-tauri/resources/backend/ `
+            -Recurse `
+            -Force
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
       - name: Install frontend dependencies
         run: npm install
+
       - name: Build Tauri installer
         uses: tauri-apps/tauri-action@v0
+
       - name: Upload Windows installer
         uses: actions/upload-artifact@v4
         with:
