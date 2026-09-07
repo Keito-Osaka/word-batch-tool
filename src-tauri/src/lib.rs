@@ -41,6 +41,11 @@ fn execute_backend(app: &AppHandle, command: &str, request: Value) -> Result<Val
 fn warmup_backend(app: AppHandle) -> Result<Value, String> { execute_backend(&app, "warmup", serde_json::json!({})) }
 
 #[tauri::command]
+fn warmup_template(app: AppHandle, template_path: String) -> Result<Value, String> {
+    execute_backend(&app, "warmup-template", serde_json::json!({"template_path": template_path}))
+}
+
+#[tauri::command]
 fn inspect_data(app: AppHandle, request: Value) -> Result<Value, String> { execute_backend(&app, "inspect", request) }
 
 #[tauri::command]
@@ -66,6 +71,26 @@ fn generate_documents(app: AppHandle, request: Value) -> Result<Value, String> {
     result.ok_or_else(|| "処理結果を取得できませんでした。".to_string())
 }
 
+
+#[tauri::command]
+fn classify_dropped_paths(paths: Vec<String>) -> Value {
+    let mut template: Option<String> = None;
+    let mut data: Option<String> = None;
+    let mut output: Option<String> = None;
+    let mut unsupported: Vec<String> = Vec::new();
+    for value in paths {
+        let path = Path::new(&value);
+        if path.is_dir() { output = Some(value); continue; }
+        let extension = path.extension().and_then(|item| item.to_str()).unwrap_or("").to_ascii_lowercase();
+        match extension.as_str() {
+            "docx" => template = Some(value),
+            "xlsx" | "xlsm" | "xls" | "csv" => data = Some(value),
+            _ => unsupported.push(value),
+        }
+    }
+    serde_json::json!({"template_path":template,"data_path":data,"output_path":output,"unsupported_paths":unsupported})
+}
+
 #[tauri::command]
 fn open_output_folder(path: String) -> Result<(), String> {
     let requested = Path::new(&path);
@@ -84,6 +109,6 @@ fn open_output_folder(path: String) -> Result<(), String> {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init()).plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![warmup_backend, inspect_data, generate_documents, open_output_folder])
+        .invoke_handler(tauri::generate_handler![warmup_backend, warmup_template, inspect_data, generate_documents, classify_dropped_paths, open_output_folder])
         .run(tauri::generate_context!()).expect("error while running tauri application");
 }

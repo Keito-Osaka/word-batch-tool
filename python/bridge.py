@@ -51,7 +51,26 @@ def inspect_data(req):
     return {"original_count":original,"example_count":examples,"excluded_count":len(excluded),"included_count":len(included),"columns":[str(c) for c in df.columns],"included_rows":included[:500],"excluded_rows":excluded[:500]}
 def aggregate_path(template,folder,count,ext):
     stem=core.sanitize_filename_part(os.path.splitext(os.path.basename(template))[0]); base=f"{stem}_{count}件一式.{ext}"; return core.ensure_unique_path(os.path.join(folder,base))
-def warmup(): return {"success":True,"python":sys.version.split()[0],"pandas":pd.__version__}
+def warmup():
+    # 文書生成・Excel・PDF処理で使う主要モジュールを初回起動時に読み込む。
+    import numpy
+    import openpyxl
+    import pypdf
+    import docx
+    return {"success":True,"python":sys.version.split()[0],"pandas":pd.__version__,"numpy":numpy.__version__}
+
+def warmup_template(req):
+    path=req.get("template_path","")
+    validate_file(path,"テンプレートWord")
+    # 保存や置換は行わず、構造を読み取ってOSとPythonのキャッシュを温める。
+    document=core.Document(path)
+    paragraph_count=len(document.paragraphs)
+    table_count=len(document.tables)
+    section_count=len(document.sections)
+    for section in document.sections:
+        _=len(section.header.paragraphs)+len(section.footer.paragraphs)
+    return {"success":True,"paragraph_count":paragraph_count,"table_count":table_count,"section_count":section_count}
+
 def zip_files(folder,zip_path,total):
     files=[f for f in os.listdir(folder) if os.path.isfile(os.path.join(folder,f))]
     with zipfile.ZipFile(zip_path,"w",zipfile.ZIP_DEFLATED) as z:
@@ -63,7 +82,10 @@ def generate(req):
     os.makedirs(output,exist_ok=True); emit_progress("prepare","置換データを準備しています",0,0,2)
     df=core.prepare_dataframe(data,format_amount_with_comma=req.get("format_amount_with_comma",True),amount_include_keywords=req.get("amount_include_keywords"),amount_exclude_keywords=req.get("amount_exclude_keywords"),row_exclude_mode=req.get("row_exclude_mode",core.DEFAULT_ROW_EXCLUDE_MODE),row_exclude_target_column_number=req.get("row_exclude_target_column_number",core.DEFAULT_ROW_EXCLUDE_TARGET_COLUMN_NUMBER))
     count=len(df); emit_progress("prepare","置換データの準備が完了しました",count,count,8,state="done")
-    keys=req.get("filename_keys",[]); serial=req.get("add_serial_number",False); digits=req.get("serial_digits",2); fmt=req.get("output_format","word"); method=req.get("output_method","folder"); fast=req.get("fast_pdf_split_enabled",True); actual=output
+    keys=req.get("filename_keys",[]); serial=req.get("add_serial_number",True); digits=req.get("serial_digits",2)
+    if not serial and not keys:
+        raise ValueError("通し番号を付けない場合は、ファイル名に使用する列を1つ以上選択してください。")
+    fmt=req.get("output_format","word"); method=req.get("output_method","folder"); fast=req.get("fast_pdf_split_enabled",True); actual=output
     def callback_for(stage,label,start,end):
         def cb(current,total): emit_progress(stage,label,current,total,start+int((end-start)*current/max(total,1)))
         return cb
@@ -91,8 +113,8 @@ def generate(req):
     emit_progress("complete","処理が完了しました",count,count,100,state="done")
     return {"success":True,"output_path":actual,"output_directory":output,"generated_count":count,"format":fmt,"method":method}
 def main():
-    p=argparse.ArgumentParser(); p.add_argument("command",choices=["warmup","inspect","generate"]); a=p.parse_args()
+    p=argparse.ArgumentParser(); p.add_argument("command",choices=["warmup","warmup-template","inspect","generate"]); a=p.parse_args()
     try:
-        req=read_request(); result=warmup() if a.command=="warmup" else inspect_data(req) if a.command=="inspect" else generate(req); write_json(sys.stdout,{"type":"result","data":result} if a.command=="generate" else result)
+        req=read_request(); result=warmup() if a.command=="warmup" else warmup_template(req) if a.command=="warmup-template" else inspect_data(req) if a.command=="inspect" else generate(req); write_json(sys.stdout,{"type":"result","data":result} if a.command=="generate" else result)
     except Exception as e: write_json(sys.stderr,{"error":str(e),"traceback":traceback.format_exc()}); sys.exit(1)
 if __name__=="__main__":main()

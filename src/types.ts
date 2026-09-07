@@ -53,3 +53,7 @@ export interface GenerationProgress {
   detail: string;
   state: "running" | "done" | "notice" | "error";
 }
+
+export interface DroppedPathClassification {
+  template_path: string | null; data_path: string | null; output_path: string | null; unsupported_paths: string[];
+}

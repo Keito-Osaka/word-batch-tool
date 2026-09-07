@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import {
   Check,
   ChevronDown,
@@ -18,7 +19,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import type { DataPreview, GenerateResult, GenerationProgress, Settings } from "./types";
+import type { DataPreview, DroppedPathClassification, GenerateResult, GenerationProgress, Settings } from "./types";
 
 const defaults: Settings = {
   outputFormat: "word",
@@ -28,16 +29,19 @@ const defaults: Settings = {
   formatAmountWithComma: true,
   rowExcludeMode: "selected_column_number_empty",
   targetColumnNumber: 2,
-  filenameKeys: ["名前（漢字）"],
+  filenameKeys: [],
   fastPdfSplitEnabled: true,
 };
 
 const loadSettings = (): Settings => {
   try {
-    return {
-      ...defaults,
-      ...JSON.parse(localStorage.getItem("wordBatchSettings") || "{}"),
-    };
+    const saved = JSON.parse(localStorage.getItem("wordBatchSettings") || "{}");
+    const migratedKeys = Array.isArray(saved.filenameKeys) ? saved.filenameKeys : [];
+    const wasOldImplicitDefault = migratedKeys.length === 1 && migratedKeys[0] === "名前（漢字）" && !localStorage.getItem("wordBatchFilenameRuleV2");
+    const filenameKeys = wasOldImplicitDefault ? [] : migratedKeys;
+    const addSerialNumber = filenameKeys.length === 0 ? true : saved.addSerialNumber ?? true;
+    localStorage.setItem("wordBatchFilenameRuleV2", "1");
+    return { ...defaults, ...saved, filenameKeys, addSerialNumber };
   } catch {
     return defaults;
   }
@@ -90,7 +94,7 @@ function Picker({
       <span className="picker-body">
         <small>{title}</small>
         <strong>{path ? path.split(/[\\/]/).pop() : "クリックして選択"}</strong>
-        <span>{meta || (path ? "選択済み" : "ファイルまたはフォルダを選択してください")}</span>
+        <span>{meta || (path ? "選択済み" : "クリックして選択、または画面へドラッグ＆ドロップ")}</span>
       </span>
       <span className="change">{path ? "変更" : "選択"}</span>
     </button>
@@ -142,6 +146,9 @@ export default function App() {
   const [result, setResult] = useState<GenerateResult | null>(null);
   const [error, setError] = useState("");
   const [progress, setProgress] = useState<GenerationProgress | null>(null);
+  const [dragActive, setDragActive] = useState(false);
+  const [dropNotice, setDropNotice] = useState("");
+  const [templateWarmupState, setTemplateWarmupState] = useState<"idle" | "running" | "ready" | "error">("idle");
 
   useEffect(() => {
     localStorage.setItem("wordBatchSettings", JSON.stringify(settings));
@@ -152,6 +159,32 @@ export default function App() {
     listen<GenerationProgress>("generation-progress", (event) => setProgress(event.payload)).then((fn) => { unlisten = fn; });
     return () => { if (unlisten) unlisten(); };
   }, []);
+
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    getCurrentWebviewWindow().onDragDropEvent(async (event) => {
+      if (busy) return;
+      if (event.payload.type === "enter" || event.payload.type === "over") { setDragActive(true); return; }
+      if (event.payload.type === "leave") { setDragActive(false); return; }
+      if (event.payload.type !== "drop") return;
+      setDragActive(false);
+      try {
+        const classified = await invoke<DroppedPathClassification>("classify_dropped_paths", { paths: event.payload.paths });
+        const accepted: string[] = [];
+        if (classified.template_path) { setTemplatePath(classified.template_path); accepted.push("テンプレート"); await prepareTemplate(classified.template_path); }
+        if (classified.output_path) { setOutputPath(classified.output_path); accepted.push("出力先"); }
+        if (classified.data_path) {
+          if (warmupState !== "ready") throw new Error("文書処理の準備が完了してから置換データをドロップしてください。");
+          setDataPath(classified.data_path); accepted.push("置換データ"); await inspect(classified.data_path);
+        }
+        if (classified.unsupported_paths.length) setError(`対応していないファイル形式です。
+${classified.unsupported_paths.join("
+")}`); else setError("");
+        if (accepted.length) { setResult(null); setDropNotice(`${accepted.join("・")}を選択しました`); window.setTimeout(() => setDropNotice(""), 2400); }
+      } catch (reason) { setError(String(reason)); }
+    }).then((fn) => { unlisten = fn; });
+    return () => { if (unlisten) unlisten(); };
+  }, [busy, warmupState, settings.formatAmountWithComma, settings.rowExcludeMode, settings.targetColumnNumber]);
 
   useEffect(() => {
     let active = true;
@@ -178,14 +211,16 @@ export default function App() {
   }, [preview?.columns.join("|")]);
 
   const canRun = Boolean(
-    templatePath && dataPath && outputPath && preview?.included_count && !busy && warmupState === "ready",
+    templatePath && dataPath && outputPath && preview?.included_count && !busy && warmupState === "ready" && templateWarmupState !== "running" && (settings.addSerialNumber || settings.filenameKeys.length > 0),
   );
   const hasWork = Boolean(templatePath || dataPath || outputPath || preview || result || error);
 
   const exampleName = useMemo(() => {
     if (settings.outputMethod !== "folder") {
       const extension = settings.outputMethod === "zip" ? "zip" : settings.outputFormat === "pdf" ? "pdf" : "docx";
-      return `作成日時_複製ファイル一式.${extension}`;
+      const templateName = (templatePath.split(/[\\/]/).pop() || "テンプレート.docx").replace(/\.docx$/i, "");
+      const count = preview?.included_count || 0;
+      return `${templateName}_${count}件一式.${extension}`;
     }
     const row = preview?.included_rows[0];
     const parts: string[] = [];
@@ -201,12 +236,24 @@ export default function App() {
     return parts.join("_");
   }, [preview, settings.addSerialNumber, settings.filenameKeys, settings.serialDigits, settings.outputFormat, settings.outputMethod, templatePath]);
 
+  async function prepareTemplate(path: string) {
+    setTemplateWarmupState("running");
+    try {
+      await invoke("warmup_template", { templatePath: path });
+      setTemplateWarmupState("ready");
+    } catch (reason) {
+      setTemplateWarmupState("error");
+      setError(`テンプレートを確認できませんでした。\n${String(reason)}`);
+    }
+  }
+
   async function chooseTemplate() {
     const path = await open({ multiple: false, filters: [{ name: "Word", extensions: ["docx"] }] });
     if (typeof path === "string") {
       setTemplatePath(path);
       setResult(null);
       setError("");
+      await prepareTemplate(path);
     }
   }
 
@@ -307,6 +354,7 @@ export default function App() {
 
   function resetWork() {
     setTemplatePath("");
+    setTemplateWarmupState("idle");
     setDataPath("");
     setOutputPath("");
     setPreview(null);
@@ -334,12 +382,16 @@ export default function App() {
   }
 
   function toggleFilenameKey(key: string) {
-    setSettings((current) => ({
-      ...current,
-      filenameKeys: current.filenameKeys.includes(key)
-        ? current.filenameKeys.filter((item) => item !== key)
-        : [...current.filenameKeys, key],
-    }));
+    setSettings((current) => {
+      const isSelected = current.filenameKeys.includes(key);
+      if (isSelected && current.filenameKeys.length === 1 && !current.addSerialNumber) return current;
+      return {
+        ...current,
+        filenameKeys: isSelected
+          ? current.filenameKeys.filter((item) => item !== key)
+          : [...current.filenameKeys, key],
+      };
+    });
   }
 
   const tableRows = previewTab === "included"
@@ -348,6 +400,8 @@ export default function App() {
 
   return (
     <div className={dark ? "app dark" : "app"}>
+      {dragActive && <div className="native-drop-overlay" aria-live="polite"><div className="native-drop-panel"><span className="drop-symbol"><FileSpreadsheet size={28} /></span><strong>ここにドロップして選択</strong><p>Word、Excel・CSV、または出力先フォルダを自動で判別します。</p><div><span>Word</span><span>Excel / CSV</span><span>フォルダ</span></div></div></div>}
+      {dropNotice && <div className="drop-toast"><Check size={15} />{dropNotice}</div>}
       <header>
         <div className="brand-block">
           <div className="app-symbol" aria-hidden="true"><FileText size={19} /></div>
@@ -378,8 +432,11 @@ export default function App() {
         {warmupState === "error" && (
           <section className="error" role="alert"><strong>文書処理を準備できませんでした</strong><p>{warmupError}</p></section>
         )}
+        {templateWarmupState === "running" && (
+          <section className="template-warmup" aria-live="polite"><span className="warmup-spinner" /><div><strong>テンプレートを確認しています</strong><p>初回の文書作成をすばやく開始できるよう準備しています。</p></div></section>
+        )}
         <section className="picker-grid">
-          <Picker kind="word" title="テンプレート" path={templatePath} disabled={busy} onPick={chooseTemplate} />
+          <Picker kind="word" title="テンプレート" path={templatePath} disabled={busy} meta={templateWarmupState === "running" ? "テンプレートを確認しています..." : templateWarmupState === "ready" ? "文書作成の準備が整いました" : undefined} onPick={chooseTemplate} />
           <Picker
             kind="excel"
             title="置換データ"
@@ -508,10 +565,12 @@ export default function App() {
                 <input
                   type="checkbox"
                   checked={settings.addSerialNumber}
-                  onChange={(event) => setSettings((current) => ({ ...current, addSerialNumber: event.target.checked }))}
+                  disabled={settings.filenameKeys.length === 0}
+                  onChange={(event) => setSettings((current) => ({ ...current, addSerialNumber: event.target.checked || current.filenameKeys.length === 0 }))}
                 />
                 先頭に通し番号を付ける
               </label>
+              {settings.filenameKeys.length === 0 && <small className="setting-note">列が選択されていないため、通し番号は必須です。</small>}
               <label>
                 桁数
                 <input
@@ -538,6 +597,7 @@ export default function App() {
                         <input
                           type="checkbox"
                           checked={settings.filenameKeys.includes(column)}
+                          disabled={settings.filenameKeys.includes(column) && settings.filenameKeys.length === 1 && !settings.addSerialNumber}
                           onChange={() => toggleFilenameKey(column)}
                         />
                         <span>{column}</span>
@@ -554,7 +614,7 @@ export default function App() {
                         <div>
                           <button disabled={index === 0} onClick={() => moveFilenameKey(index, -1)} aria-label="上へ"><ChevronUp size={16} /></button>
                           <button disabled={index === settings.filenameKeys.length - 1} onClick={() => moveFilenameKey(index, 1)} aria-label="下へ"><ChevronDown size={16} /></button>
-                          <button onClick={() => toggleFilenameKey(key)} aria-label="削除"><Trash2 size={16} /></button>
+                          <button disabled={settings.filenameKeys.length === 1 && !settings.addSerialNumber} onClick={() => toggleFilenameKey(key)} aria-label="削除"><Trash2 size={16} /></button>
                         </div>
                       </div>
                     ))}
