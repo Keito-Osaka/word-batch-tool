@@ -35,7 +35,9 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    console=False,
+    # 標準入出力によるTauriとのJSON通信を維持するためTrueにする。
+    # コンソール画面自体はRust側のCREATE_NO_WINDOWで非表示にする。
+    console=True,
 )
 
 coll = COLLECT(
