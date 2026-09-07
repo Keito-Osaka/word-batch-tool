@@ -122,8 +122,12 @@ def _normalize_keyword_list(keywords):
 
 
 def is_amount_column(column_name, include_keywords=None, exclude_keywords=None):
-    include_keywords = _normalize_keyword_list(include_keywords or DEFAULT_AMOUNT_INCLUDE_KEYWORDS)
-    exclude_keywords = _normalize_keyword_list(exclude_keywords or DEFAULT_AMOUNT_EXCLUDE_KEYWORDS)
+    include_keywords = _normalize_keyword_list(
+        DEFAULT_AMOUNT_INCLUDE_KEYWORDS if include_keywords is None else include_keywords
+    )
+    exclude_keywords = _normalize_keyword_list(
+        DEFAULT_AMOUNT_EXCLUDE_KEYWORDS if exclude_keywords is None else exclude_keywords
+    )
     name = re.sub(r"\s+", "", str(column_name).strip())
     if not name:
         return False
