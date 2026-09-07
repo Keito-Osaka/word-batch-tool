@@ -1,9 +1,42 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Wordファイル一括作成",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "identifier": "jp.local.wordbatchtool",
-  "build": { "beforeDevCommand": "npm run dev", "devUrl": "http://localhost:1420", "beforeBuildCommand": "npm run build", "frontendDist": "../dist" },
-  "app": { "windows": [{ "title": "Wordファイル一括作成", "width": 1040, "height": 820, "minWidth": 820, "minHeight": 680, "center": true }], "security": { "csp": null } },
-  "bundle": { "active": true, "targets": ["nsis"], "resources": { "resources/backend/": "backend/" }, "windows": { "nsis": { "displayLanguageSelector": false, "installerIcon": null } } }
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Wordファイル一括作成",
+        "width": 1040,
+        "height": 820,
+        "minWidth": 820,
+        "minHeight": 680,
+        "center": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "resources": {
+      "resources/backend/": "backend/"
+    },
+    "windows": {
+      "nsis": {
+        "languages": ["Japanese"],
+        "displayLanguageSelector": false,
+        "installerIcon": "icons/icon.ico",
+        "installMode": "currentUser"
+      }
+    }
+  }
 }
