@@ -17,8 +17,16 @@ fn spawn_backend(app: &AppHandle, command: &str, request: Value) -> Result<std::
     let mut child = Command::new(backend_path(app)?)
         .arg(command).stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped())
         .spawn().map_err(|e| e.to_string())?;
-    child.stdin.as_mut().ok_or_else(|| "Pythonバックエンドの標準入力を開けません。".to_string())?
-        .write_all(&serde_json::to_vec(&request).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
+    let request_bytes = serde_json::to_vec(&request).map_err(|e| e.to_string())?;
+    {
+        let mut stdin = child
+            .stdin
+            .take()
+            .ok_or_else(|| "Pythonバックエンドの標準入力を開けません。".to_string())?;
+        stdin.write_all(&request_bytes).map_err(|e| e.to_string())?;
+        stdin.flush().map_err(|e| e.to_string())?;
+    }
+    // stdinをここで確実に閉じ、Python側のread()へEOFを通知する。
     Ok(child)
 }
 

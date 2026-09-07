@@ -349,11 +349,16 @@ export default function App() {
   return (
     <div className={dark ? "app dark" : "app"}>
       <header>
-        <div>
-          <h1>Wordファイル一括作成</h1>
-          <p>テンプレートと置換データから文書をまとめて作成します。</p>
+        <div className="brand-block">
+          <div className="app-symbol" aria-hidden="true"><FileText size={19} /></div>
+          <div>
+            <span className="eyebrow">DOCUMENT AUTOMATION</span>
+            <h1>Wordファイル一括作成</h1>
+            <p>テンプレートと置換データから、文書をすばやく作成します。</p>
+          </div>
         </div>
         <div className="header-actions">
+          <span className={`readiness ${warmupState}`}><i />{warmupState === "ready" ? "準備完了" : warmupState === "running" ? "準備中" : "要確認"}</span>
           <button className="icon-button" onClick={() => setDark((value) => !value)} aria-label="テーマ切替">
             {dark ? <Sun size={18} /> : <Moon size={18} />}
           </button>
