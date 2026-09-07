@@ -103,21 +103,108 @@ function Picker({
 }
 
 function HelpGuide({ onClose }: { onClose: () => void }) {
+  const [section, setSection] = useState<"basic" | "template" | "data" | "output" | "history" | "about">("basic");
+
   return (
     <div className="overlay center-overlay" role="presentation" onMouseDown={onClose}>
-      <section className="help-modal" role="dialog" aria-modal="true" aria-labelledby="help-title" onMouseDown={(event) => event.stopPropagation()}>
-        <div className="drawer-head"><div><h2 id="help-title">使い方</h2><p>3つの項目を選び、出力方法を指定して作成します。</p></div><button className="icon-button" onClick={onClose} aria-label="使い方を閉じる"><X size={18} /></button></div>
-        <div className="help-body">
-          <ol className="help-steps">
-            <li><span>1</span><div><strong>テンプレートを選択</strong><p>差し込み項目を含むWordファイルを選びます。ドラッグ＆ドロップにも対応しています。</p></div></li>
-            <li><span>2</span><div><strong>置換データを選択</strong><p>ExcelまたはCSVを選びます。「置換データを確認」から内容を確認できます。</p></div></li>
-            <li><span>3</span><div><strong>出力先を選択</strong><p>作成したファイルを保存するフォルダを選びます。</p></div></li>
-            <li><span>4</span><div><strong>形式と方法を指定</strong><p>WordまたはPDF、個別・結合・ZIPを選びます。</p></div></li>
-            <li><span>5</span><div><strong>複製を開始</strong><p>件数と出力ファイル名の例を確認してから開始します。</p></div></li>
-          </ol>
-          <div className="help-note"><strong>ファイル名について</strong><p>通し番号を付けない場合は、ファイル名に使用する列を1つ以上選択してください。</p></div>
-          <button className="primary help-close" onClick={onClose}>閉じる</button>
+      <section className="help-modal help-modal-wide" role="dialog" aria-modal="true" aria-labelledby="help-title" onMouseDown={(event) => event.stopPropagation()}>
+        <div className="drawer-head">
+          <div><h2 id="help-title">使い方とアプリ情報</h2><p>基本操作、データの準備、更新情報を確認できます。</p></div>
+          <button className="icon-button" onClick={onClose} aria-label="使い方を閉じる"><X size={18} /></button>
         </div>
+        <div className="help-layout">
+          <nav className="help-nav" aria-label="使い方の目次">
+            <button className={section === "basic" ? "active" : ""} onClick={() => setSection("basic")}>基本操作</button>
+            <button className={section === "template" ? "active" : ""} onClick={() => setSection("template")}>テンプレートの作り方</button>
+            <button className={section === "data" ? "active" : ""} onClick={() => setSection("data")}>置換データの作り方</button>
+            <button className={section === "output" ? "active" : ""} onClick={() => setSection("output")}>ファイル名と出力</button>
+            <button className={section === "history" ? "active" : ""} onClick={() => setSection("history")}>更新履歴</button>
+            <button className={section === "about" ? "active" : ""} onClick={() => setSection("about")}>このアプリについて</button>
+          </nav>
+
+          <div className="help-content">
+            {section === "basic" && (
+              <div className="help-section">
+                <h3>基本操作</h3>
+                <ol className="help-steps">
+                  <li><span>1</span><div><strong>テンプレートを選択</strong><p>差し込み項目を含むWordファイルを選びます。ドラッグ＆ドロップにも対応しています。</p></div></li>
+                  <li><span>2</span><div><strong>置換データを選択</strong><p>ExcelまたはCSVを選びます。「置換データを確認」から内容と除外行を確認できます。</p></div></li>
+                  <li><span>3</span><div><strong>出力先を選択</strong><p>作成したファイルを保存するフォルダを選びます。</p></div></li>
+                  <li><span>4</span><div><strong>形式と方法を指定</strong><p>WordまたはPDF、個別・結合・ZIPを選びます。</p></div></li>
+                  <li><span>5</span><div><strong>複製を開始</strong><p>件数と出力ファイル名の例を確認してから開始します。</p></div></li>
+                </ol>
+              </div>
+            )}
+
+            {section === "template" && (
+              <div className="help-section">
+                <h3>テンプレートの作り方</h3>
+                <p>Word内の置換したい部分を、半角の二重波括弧で囲みます。括弧内の文字は、置換データの列名と完全に一致させてください。</p>
+                <div className="help-example"><small>テンプレートの例</small><code>学校名：{`{{学校名}}`}<br />氏名：{`{{氏名}}`}<br />交付決定額：金{`{{交付決定額}}`}円</code></div>
+                <div className="help-rule-list">
+                  <p><strong>使用できる形式</strong><span>.docx</span></p>
+                  <p><strong>正しい書き方</strong><span><code>{`{{学校名}}`}</code></span></p>
+                  <p><strong>避ける書き方</strong><span><code>{`{{ 学校名 }}`}</code></span></p>
+                </div>
+                <div className="help-note"><strong>書式を維持するために</strong><p>プレースホルダー全体を同じ文字サイズ・フォント・装飾にしてください。同じ項目はWord内で複数回使用できます。</p></div>
+              </div>
+            )}
+
+            {section === "data" && (
+              <div className="help-section">
+                <h3>置換データの作り方</h3>
+                <p>Excel・CSVの1行目を列名として読み込み、2行目以降を置換データとして使用します。</p>
+                <div className="help-data-sample" role="table" aria-label="置換データの例">
+                  <div className="head">学校名</div><div className="head">氏名</div><div className="head">交付決定額</div>
+                  <div>あいうえお高等学校</div><div>山田 太郎</div><div>100000</div>
+                  <div>かきくけこ高等学校</div><div>佐藤 花子</div><div>120000</div>
+                </div>
+                <ul className="help-bullets">
+                  <li>1行目の列名を空欄にしないでください。</li>
+                  <li>Wordの二重波括弧内と列名を完全に一致させてください。</li>
+                  <li>結合セルや、データ途中の説明行は使用しないでください。</li>
+                  <li>口座番号など先頭ゼロが必要な値は、Excel上で文字列として管理してください。</li>
+                  <li>複数シートがある場合は、先頭のシートを読み込みます。</li>
+                </ul>
+              </div>
+            )}
+
+            {section === "output" && (
+              <div className="help-section">
+                <h3>ファイル名と出力</h3>
+                <div className="help-rule-list">
+                  <p><strong>出力形式</strong><span>Word / PDF</span></p>
+                  <p><strong>出力方法</strong><span>個別 / 結合 / ZIP</span></p>
+                  <p><strong>結合・ZIP名</strong><span>テンプレート名_件数件一式</span></p>
+                  <p><strong>同名ファイル</strong><span>上書きせず、末尾に番号を付加</span></p>
+                </div>
+                <div className="help-note"><strong>ファイル名の識別</strong><p>初期状態では通し番号が付きます。通し番号を付けない場合は、ファイル名に使用する列を1つ以上選択してください。</p></div>
+                <div className="help-note"><strong>PDF出力</strong><p>PDF作成には、デスクトップ版Microsoft Wordが必要です。</p></div>
+              </div>
+            )}
+
+            {section === "history" && (
+              <div className="help-section">
+                <h3>更新履歴</h3>
+                <article className="release-card"><div><strong>Version 1.0.0</strong><span>初回正式版</span></div><ul><li>Word・PDFの個別、結合、ZIP出力に対応</li><li>Excel・CSV、ドラッグ＆ドロップ、進捗表示に対応</li><li>ファイル名設定、データ確認、ライト・ダークテーマを実装</li></ul></article>
+                <p className="help-footnote">更新履歴はVersion 1.0.0以降を掲載します。</p>
+              </div>
+            )}
+
+            {section === "about" && (
+              <div className="help-section">
+                <h3>このアプリについて</h3>
+                <div className="about-card"><div className="about-symbol"><FileText size={24} /></div><div><strong>Wordファイル一括作成</strong><span>Version 1.0.0</span></div></div>
+                <div className="help-rule-list about-list">
+                  <p><strong>制作者</strong><span>今井 啓登</span></p>
+                  <p><strong>連絡先</strong><span><a href="mailto:ImaiK@mbox.pref.osaka.lg.jp">ImaiK@mbox.pref.osaka.lg.jp</a></span></p>
+                </div>
+                <div className="help-note"><strong>利用上の注意</strong><p>生成した文書は、配布・送信・印刷前に必ず内容を確認してください。</p></div>
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="help-actions"><button className="primary" onClick={onClose}>閉じる</button></div>
       </section>
     </div>
   );
