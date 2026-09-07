@@ -34,6 +34,11 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Python backend warmup failed." }
           $warmupResult = $warmup | ConvertFrom-Json
           if (-not $warmupResult.success) { throw "Python backend warmup returned an invalid response." }
+          $templateRequest = @{ template_path = (Resolve-Path "test-data/テスト用テンプレート.docx").Path } | ConvertTo-Json -Compress
+          $templateWarmup = $templateRequest | & "src-tauri/resources/backend/word-batch-backend.exe" warmup-template
+          if ($LASTEXITCODE -ne 0) { throw "Template warmup failed." }
+          $templateResult = $templateWarmup | ConvertFrom-Json
+          if (-not $templateResult.success) { throw "Template warmup returned an invalid response." }
           $request = @{ data_path = (Resolve-Path "test-data/テスト用置換データ.xlsx").Path; format_amount_with_comma = $true; row_exclude_mode = "selected_column_number_empty"; row_exclude_target_column_number = 2 } | ConvertTo-Json -Compress
           $output = $request | & "src-tauri/resources/backend/word-batch-backend.exe" inspect
           if ($LASTEXITCODE -ne 0) { throw "Python backend smoke test failed." }
@@ -50,7 +55,7 @@ jobs:
       - name: Upload Windows installer
         uses: actions/upload-artifact@v7
         with:
-          name: WordBatchTool-Windows-v0.5
+          name: WordBatchTool-Windows-v0.5.2
           path: src-tauri/target/release/bundle/nsis/*.exe
           retention-days: 7
           if-no-files-found: error
