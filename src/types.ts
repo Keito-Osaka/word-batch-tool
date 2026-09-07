@@ -15,6 +15,7 @@ export interface Settings {
   rowExcludeMode: ExcludeMode;
   targetColumnNumber: number;
   filenameKeys: string[];
+  fastPdfSplitEnabled: boolean;
 }
 
 export interface ExcludedRow {
@@ -37,4 +38,7 @@ export interface GenerateResult {
   success: boolean;
   output_path: string;
   generated_count: number;
+  output_directory?: string;
+  format?: OutputFormat;
+  method?: OutputMethod;
 }

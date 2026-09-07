@@ -28,6 +28,7 @@ const defaults: Settings = {
   rowExcludeMode: "selected_column_number_empty",
   targetColumnNumber: 2,
   filenameKeys: ["名前（漢字）"],
+  fastPdfSplitEnabled: true,
 };
 
 const loadSettings = (): Settings => {
@@ -134,6 +135,8 @@ export default function App() {
   const [preview, setPreview] = useState<DataPreview | null>(null);
   const [settings, setSettings] = useState<Settings>(loadSettings);
   const [busy, setBusy] = useState(false);
+  const [warmupState, setWarmupState] = useState<"running" | "ready" | "error">("running");
+  const [warmupError, setWarmupError] = useState("");
   const [status, setStatus] = useState("準備完了");
   const [result, setResult] = useState<GenerateResult | null>(null);
   const [error, setError] = useState("");
@@ -141,6 +144,22 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem("wordBatchSettings", JSON.stringify(settings));
   }, [settings]);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        await invoke("warmup_backend");
+        if (active) setWarmupState("ready");
+      } catch (reason) {
+        if (active) {
+          setWarmupError(String(reason));
+          setWarmupState("error");
+        }
+      }
+    })();
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
     if (!preview) return;
@@ -151,11 +170,15 @@ export default function App() {
   }, [preview?.columns.join("|")]);
 
   const canRun = Boolean(
-    templatePath && dataPath && outputPath && preview?.included_count && !busy,
+    templatePath && dataPath && outputPath && preview?.included_count && !busy && warmupState === "ready",
   );
   const hasWork = Boolean(templatePath || dataPath || outputPath || preview || result || error);
 
   const exampleName = useMemo(() => {
+    if (settings.outputMethod !== "folder") {
+      const extension = settings.outputMethod === "zip" ? "zip" : settings.outputFormat === "pdf" ? "pdf" : "docx";
+      return `作成日時_複製ファイル一式.${extension}`;
+    }
     const row = preview?.included_rows[0];
     const parts: string[] = [];
     if (settings.addSerialNumber) {
@@ -166,9 +189,9 @@ export default function App() {
       if (value) parts.push(value.replace(/\s+/g, " "));
     }
     const sourceName = templatePath.split(/[\\/]/).pop() || "テンプレート.docx";
-    parts.push(sourceName.replace(/\.docx$/i, ".docx"));
+    parts.push(sourceName.replace(/\.docx$/i, settings.outputFormat === "pdf" ? ".pdf" : ".docx"));
     return parts.join("_");
-  }, [preview, settings.addSerialNumber, settings.filenameKeys, settings.serialDigits, templatePath]);
+  }, [preview, settings.addSerialNumber, settings.filenameKeys, settings.serialDigits, settings.outputFormat, settings.outputMethod, templatePath]);
 
   async function chooseTemplate() {
     const path = await open({ multiple: false, filters: [{ name: "Word", extensions: ["docx"] }] });
@@ -212,6 +235,9 @@ export default function App() {
           format_amount_with_comma: settings.formatAmountWithComma,
           row_exclude_mode: settings.rowExcludeMode,
           row_exclude_target_column_number: settings.targetColumnNumber,
+          output_format: settings.outputFormat,
+          output_method: settings.outputMethod,
+          fast_pdf_split_enabled: settings.fastPdfSplitEnabled,
         },
       });
       setPreview(response);
@@ -243,6 +269,9 @@ export default function App() {
           format_amount_with_comma: settings.formatAmountWithComma,
           row_exclude_mode: settings.rowExcludeMode,
           row_exclude_target_column_number: settings.targetColumnNumber,
+          output_format: settings.outputFormat,
+          output_method: settings.outputMethod,
+          fast_pdf_split_enabled: settings.fastPdfSplitEnabled,
         },
       });
       setResult(response);
@@ -259,7 +288,7 @@ export default function App() {
     if (!outputPath || busy) return;
     setError("");
     try {
-      await invoke("open_output_folder", { path: outputPath });
+      await invoke("open_output_folder", { path: result?.output_path || outputPath });
     } catch (reason) {
       setError(`出力先を開けませんでした。\n${String(reason)}`);
     }
@@ -323,14 +352,23 @@ export default function App() {
       </header>
 
       <main>
+        {warmupState === "running" && (
+          <section className="warmup-card" aria-live="polite">
+            <span className="warmup-spinner" />
+            <div><strong>文書処理を準備しています</strong><p>初回のみ数秒かかることがあります。準備が整うと置換データを選択できます。</p></div>
+          </section>
+        )}
+        {warmupState === "error" && (
+          <section className="error" role="alert"><strong>文書処理を準備できませんでした</strong><p>{warmupError}</p></section>
+        )}
         <section className="picker-grid">
           <Picker kind="word" title="テンプレート" path={templatePath} disabled={busy} onPick={chooseTemplate} />
           <Picker
             kind="excel"
             title="置換データ"
             path={dataPath}
-            disabled={busy}
-            meta={preview ? `使用${preview.included_count}件・除外${preview.excluded_count}件` : undefined}
+            disabled={busy || warmupState !== "ready"}
+            meta={warmupState === "running" ? "文書処理の準備が整うまでお待ちください" : preview ? `使用${preview.included_count}件・除外${preview.excluded_count}件` : undefined}
             onPick={chooseData}
           />
         </section>
@@ -353,9 +391,9 @@ export default function App() {
             <Segmented
               value={settings.outputFormat}
               onChange={(value) => setSettings((current) => ({ ...current, outputFormat: value }))}
-              items={[{ value: "word", label: "Word" }, { value: "pdf", label: "PDF", disabled: true }]}
+              items={[{ value: "word", label: "Word" }, { value: "pdf", label: "PDF" }]}
             />
-            <small className="later">PDFは次段階で対応</small>
+            
           </div>
           <div>
             <label>出力方法</label>
@@ -364,11 +402,11 @@ export default function App() {
               onChange={(value) => setSettings((current) => ({ ...current, outputMethod: value }))}
               items={[
                 { value: "folder", label: "個別" },
-                { value: "merged", label: "結合", disabled: true },
-                { value: "zip", label: "ZIP", disabled: true },
+                { value: "merged", label: "結合" },
+                { value: "zip", label: "ZIP" },
               ]}
             />
-            <small className="later">結合・ZIPは次段階で対応</small>
+            
           </div>
           <button className="details" onClick={() => setSettingsOpen(true)}>
             ファイル名と詳細設定 <ChevronRight size={17} />
@@ -394,7 +432,7 @@ export default function App() {
           <section className="success">
             <span><Check size={18} /></span>
             <div>
-              <strong>{result.generated_count}件のWordファイルを作成しました</strong>
+              <strong>{result.generated_count}件の{result.format === "pdf" ? "PDF" : "Word"}処理が完了しました</strong>
               <p>{result.output_path}</p>
               <div className="success-actions">
                 <button className="primary" onClick={openOutputFolder}><FolderOpen size={16} />出力先を開く</button>
@@ -405,7 +443,7 @@ export default function App() {
         ) : (
           <section className="runbar">
             <div>
-              <span><strong>{preview?.included_count || 0}件</strong>のWordファイルを作成します</span>
+              <span><strong>{preview?.included_count || 0}件</strong>の{settings.outputFormat === "pdf" ? "PDF" : "Word"}を{settings.outputMethod === "folder" ? "個別作成" : settings.outputMethod === "merged" ? "結合して作成" : "ZIPにまとめて作成"}します</span>
               <small>{status}</small>
             </div>
             <div className="run-actions">
@@ -520,6 +558,13 @@ export default function App() {
                 />
                 金額を3桁区切りにする
               </label>
+
+              <h3>PDF</h3>
+              <label className="check">
+                <input type="checkbox" checked={settings.fastPdfSplitEnabled} onChange={(event) => setSettings((current) => ({ ...current, fastPdfSplitEnabled: event.target.checked }))} />
+                個別PDF出力を高速化する
+              </label>
+              <small className="setting-note">分割できない場合は自動的に通常方式へ切り替えます。</small>
 
               <button className="primary full" onClick={async () => { setSettingsOpen(false); if (dataPath) await inspect(); }}>
                 設定を適用
