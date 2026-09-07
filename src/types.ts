@@ -12,6 +12,7 @@ export interface Settings {
   addSerialNumber: boolean;
   serialDigits: number;
   formatAmountWithComma: boolean;
+  amountIncludeKeywords: string[];
   rowExcludeMode: ExcludeMode;
   targetColumnNumber: number;
   filenameKeys: string[];

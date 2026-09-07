@@ -22,12 +22,23 @@ import {
 } from "lucide-react";
 import type { DataPreview, DroppedPathClassification, GenerateResult, GenerationProgress, Settings } from "./types";
 
+const DEFAULT_AMOUNT_INCLUDE_KEYWORDS = [
+  "交付申請額",
+  "交付決定額",
+  "申請額",
+  "金額",
+  "費用",
+  "参加費用",
+  "支援金",
+];
+
 const defaults: Settings = {
   outputFormat: "word",
   outputMethod: "folder",
   addSerialNumber: true,
   serialDigits: 2,
   formatAmountWithComma: true,
+  amountIncludeKeywords: DEFAULT_AMOUNT_INCLUDE_KEYWORDS,
   rowExcludeMode: "selected_column_number_empty",
   targetColumnNumber: 2,
   filenameKeys: [],
@@ -42,7 +53,10 @@ const loadSettings = (): Settings => {
     const filenameKeys = wasOldImplicitDefault ? [] : migratedKeys;
     const addSerialNumber = filenameKeys.length === 0 ? true : saved.addSerialNumber ?? true;
     localStorage.setItem("wordBatchFilenameRuleV2", "1");
-    return { ...defaults, ...saved, filenameKeys, addSerialNumber };
+    const amountIncludeKeywords = Array.isArray(saved.amountIncludeKeywords)
+      ? saved.amountIncludeKeywords
+      : DEFAULT_AMOUNT_INCLUDE_KEYWORDS;
+    return { ...defaults, ...saved, filenameKeys, addSerialNumber, amountIncludeKeywords };
   } catch {
     return defaults;
   }
@@ -179,6 +193,7 @@ function HelpGuide({ onClose }: { onClose: () => void }) {
                   <p><strong>同名ファイル</strong><span>上書きせず、末尾に番号を付加</span></p>
                 </div>
                 <div className="help-note"><strong>ファイル名の識別</strong><p>初期状態では通し番号が付きます。通し番号を付けない場合は、ファイル名に使用する列を1つ以上選択してください。</p></div>
+                <div className="help-note"><strong>金額の3桁区切り</strong><p>対象として登録したキーワードを列名に含む列は、100000を100,000のように整形します。対象キーワードは「ファイル名と詳細設定」の金額欄で追加・削除できます。</p></div>
                 <div className="help-note"><strong>PDF出力</strong><p>PDF作成には、デスクトップ版Microsoft Wordが必要です。</p></div>
               </div>
             )}
@@ -186,7 +201,7 @@ function HelpGuide({ onClose }: { onClose: () => void }) {
             {section === "history" && (
               <div className="help-section">
                 <h3>更新履歴</h3>
-                <article className="release-card"><div><strong>Version 1.0.0</strong><span>初回正式版</span></div><ul><li>Word・PDFの個別、結合、ZIP出力に対応</li><li>Excel・CSV、ドラッグ＆ドロップ、進捗表示に対応</li><li>ファイル名設定、データ確認、ライト・ダークテーマを実装</li></ul></article>
+                <article className="release-card"><div><strong>Version 1.0.0</strong><span>初回正式版</span></div><ul><li>Word・PDFの個別、結合、ZIP出力に対応</li><li>Excel・CSV、ドラッグ＆ドロップ、進捗表示に対応</li><li>ファイル名設定、データ確認、ライト・ダークテーマを実装</li><li>金額列の3桁区切りと対象キーワード編集に対応</li></ul></article>
                 <p className="help-footnote">更新履歴はVersion 1.0.0以降を掲載します。</p>
               </div>
             )}
@@ -260,6 +275,7 @@ export default function App() {
   const [dropNotice, setDropNotice] = useState("");
   const [templateWarmupState, setTemplateWarmupState] = useState<"idle" | "running" | "ready" | "error">("idle");
   const [dataLoadState, setDataLoadState] = useState<"idle" | "running" | "ready" | "error">("idle");
+  const [amountKeywordInput, setAmountKeywordInput] = useState("");
 
   useEffect(() => {
     localStorage.setItem("wordBatchSettings", JSON.stringify(settings));
@@ -402,6 +418,7 @@ export default function App() {
         request: {
           data_path: path,
           format_amount_with_comma: settings.formatAmountWithComma,
+          amount_include_keywords: settings.amountIncludeKeywords,
           row_exclude_mode: settings.rowExcludeMode,
           row_exclude_target_column_number: settings.targetColumnNumber,
           output_format: settings.outputFormat,
@@ -439,6 +456,7 @@ export default function App() {
           add_serial_number: settings.addSerialNumber,
           serial_digits: settings.serialDigits,
           format_amount_with_comma: settings.formatAmountWithComma,
+          amount_include_keywords: settings.amountIncludeKeywords,
           row_exclude_mode: settings.rowExcludeMode,
           row_exclude_target_column_number: settings.targetColumnNumber,
           output_format: settings.outputFormat,
@@ -509,6 +527,31 @@ export default function App() {
           : [...current.filenameKeys, key],
       };
     });
+  }
+
+  function addAmountKeyword() {
+    const keyword = amountKeywordInput.trim().replace(/\s+/g, "");
+    if (!keyword) return;
+    setSettings((current) => {
+      if (current.amountIncludeKeywords.includes(keyword)) return current;
+      return { ...current, amountIncludeKeywords: [...current.amountIncludeKeywords, keyword] };
+    });
+    setAmountKeywordInput("");
+  }
+
+  function removeAmountKeyword(keyword: string) {
+    setSettings((current) => ({
+      ...current,
+      amountIncludeKeywords: current.amountIncludeKeywords.filter((item) => item !== keyword),
+    }));
+  }
+
+  function resetAmountKeywords() {
+    setSettings((current) => ({
+      ...current,
+      amountIncludeKeywords: [...DEFAULT_AMOUNT_INCLUDE_KEYWORDS],
+    }));
+    setAmountKeywordInput("");
   }
 
   const tableRows = previewTab === "included"
@@ -771,6 +814,34 @@ export default function App() {
                 />
                 金額を3桁区切りにする
               </label>
+              <small className="setting-note">登録したキーワードを列名に含む列を、100,000の形式へ整形します。</small>
+              <div className={settings.formatAmountWithComma ? "amount-keyword-editor" : "amount-keyword-editor disabled"}>
+                <div className="setting-subhead amount-keyword-heading">
+                  <div><strong>対象となる列名キーワード</strong><small>部分一致で判定します。</small></div>
+                  <button type="button" disabled={!settings.formatAmountWithComma} onClick={resetAmountKeywords}>初期設定に戻す</button>
+                </div>
+                <div className="keyword-tags">
+                  {settings.amountIncludeKeywords.length === 0 ? (
+                    <span className="keyword-empty">対象キーワードがありません。</span>
+                  ) : settings.amountIncludeKeywords.map((keyword) => (
+                    <span className="keyword-tag" key={keyword}>
+                      {keyword}
+                      <button type="button" disabled={!settings.formatAmountWithComma} onClick={() => removeAmountKeyword(keyword)} aria-label={`${keyword}を削除`}><X size={13} /></button>
+                    </span>
+                  ))}
+                </div>
+                <div className="keyword-add-row">
+                  <input
+                    type="text"
+                    value={amountKeywordInput}
+                    disabled={!settings.formatAmountWithComma}
+                    placeholder="例：補助対象経費"
+                    onChange={(event) => setAmountKeywordInput(event.target.value)}
+                    onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addAmountKeyword(); } }}
+                  />
+                  <button type="button" disabled={!settings.formatAmountWithComma || !amountKeywordInput.trim()} onClick={addAmountKeyword}>追加</button>
+                </div>
+              </div>
 
               <h3>PDF</h3>
               <label className="check">
