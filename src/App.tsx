@@ -5,6 +5,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import {
   Check,
+  CircleHelp,
   ChevronDown,
   ChevronRight,
   ChevronUp,
@@ -101,6 +102,27 @@ function Picker({
   );
 }
 
+function HelpGuide({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="overlay center-overlay" role="presentation" onMouseDown={onClose}>
+      <section className="help-modal" role="dialog" aria-modal="true" aria-labelledby="help-title" onMouseDown={(event) => event.stopPropagation()}>
+        <div className="drawer-head"><div><h2 id="help-title">使い方</h2><p>3つの項目を選び、出力方法を指定して作成します。</p></div><button className="icon-button" onClick={onClose} aria-label="使い方を閉じる"><X size={18} /></button></div>
+        <div className="help-body">
+          <ol className="help-steps">
+            <li><span>1</span><div><strong>テンプレートを選択</strong><p>差し込み項目を含むWordファイルを選びます。ドラッグ＆ドロップにも対応しています。</p></div></li>
+            <li><span>2</span><div><strong>置換データを選択</strong><p>ExcelまたはCSVを選びます。「置換データを確認」から内容を確認できます。</p></div></li>
+            <li><span>3</span><div><strong>出力先を選択</strong><p>作成したファイルを保存するフォルダを選びます。</p></div></li>
+            <li><span>4</span><div><strong>形式と方法を指定</strong><p>WordまたはPDF、個別・結合・ZIPを選びます。</p></div></li>
+            <li><span>5</span><div><strong>複製を開始</strong><p>件数と出力ファイル名の例を確認してから開始します。</p></div></li>
+          </ol>
+          <div className="help-note"><strong>ファイル名について</strong><p>通し番号を付けない場合は、ファイル名に使用する列を1つ以上選択してください。</p></div>
+          <button className="primary help-close" onClick={onClose}>閉じる</button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function Confirmation({
   title,
   message,
@@ -131,6 +153,7 @@ function Confirmation({
 export default function App() {
   const [dark, setDark] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewTab, setPreviewTab] = useState<"included" | "excluded">("included");
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
@@ -149,6 +172,7 @@ export default function App() {
   const [dragActive, setDragActive] = useState(false);
   const [dropNotice, setDropNotice] = useState("");
   const [templateWarmupState, setTemplateWarmupState] = useState<"idle" | "running" | "ready" | "error">("idle");
+  const [dataLoadState, setDataLoadState] = useState<"idle" | "running" | "ready" | "error">("idle");
 
   useEffect(() => {
     localStorage.setItem("wordBatchSettings", JSON.stringify(settings));
@@ -283,6 +307,7 @@ export default function App() {
   async function inspect(path = dataPath) {
     if (!path) return;
     setBusy(true);
+    setDataLoadState("running");
     setError("");
     setStatus("置換データを確認しています...");
     try {
@@ -298,9 +323,11 @@ export default function App() {
         },
       });
       setPreview(response);
+      setDataLoadState("ready");
       setStatus(`使用${response.included_count}件・除外${response.excluded_count}件`);
     } catch (reason) {
       setPreview(null);
+      setDataLoadState("error");
       setError(String(reason));
       setStatus("読込エラー");
     } finally {
@@ -358,6 +385,7 @@ export default function App() {
     setTemplatePath("");
     setTemplateWarmupState("idle");
     setDataPath("");
+    setDataLoadState("idle");
     setOutputPath("");
     setPreview(null);
     setResult(null);
@@ -415,10 +443,11 @@ export default function App() {
         </div>
         <div className="header-actions">
           <span className={`readiness ${warmupState}`}><i />{warmupState === "ready" ? "準備完了" : warmupState === "running" ? "準備中" : "要確認"}</span>
-          <button className="icon-button" onClick={() => setDark((value) => !value)} aria-label="テーマ切替">
+          <button className="icon-button" disabled={busy} onClick={() => setHelpOpen(true)} aria-label="使い方を確認" title="使い方を確認"><CircleHelp size={18} /></button>
+          <button className="icon-button" onClick={() => setDark((value) => !value)} aria-label="テーマ切替" title="テーマを切り替え">
             {dark ? <Sun size={18} /> : <Moon size={18} />}
           </button>
-          <button className="icon-button" disabled={busy} onClick={() => setSettingsOpen(true)} aria-label="設定">
+          <button className="icon-button" disabled={busy} onClick={() => setSettingsOpen(true)} aria-label="設定" title="設定">
             <SettingsIcon size={18} />
           </button>
         </div>
@@ -434,17 +463,14 @@ export default function App() {
         {warmupState === "error" && (
           <section className="error" role="alert"><strong>文書処理を準備できませんでした</strong><p>{warmupError}</p></section>
         )}
-        {templateWarmupState === "running" && (
-          <section className="template-warmup" aria-live="polite"><span className="warmup-spinner" /><div><strong>テンプレートを確認しています</strong><p>初回の文書作成をすばやく開始できるよう準備しています。</p></div></section>
-        )}
         <section className="picker-grid">
-          <Picker kind="word" title="テンプレート" path={templatePath} disabled={busy} meta={templateWarmupState === "running" ? "テンプレートを確認しています..." : templateWarmupState === "ready" ? "文書作成の準備が整いました" : undefined} onPick={chooseTemplate} />
+          <Picker kind="word" title="テンプレート" path={templatePath} disabled={busy} meta={templateWarmupState === "running" ? "テンプレートを確認しています…" : templateWarmupState === "ready" ? "読み込みが完了しました" : undefined} onPick={chooseTemplate} />
           <Picker
             kind="excel"
             title="置換データ"
             path={dataPath}
             disabled={busy || warmupState !== "ready"}
-            meta={warmupState === "running" ? "文書処理の準備が整うまでお待ちください" : preview ? `使用${preview.included_count}件・除外${preview.excluded_count}件` : undefined}
+            meta={warmupState === "running" ? "文書処理の準備が整うまでお待ちください" : dataLoadState === "running" ? "置換データを確認しています…" : dataLoadState === "ready" ? "読み込みが完了しました" : undefined}
             onPick={chooseData}
           />
         </section>
@@ -484,17 +510,16 @@ export default function App() {
             />
             
           </div>
-          <button className="details" onClick={() => setSettingsOpen(true)}>
-            ファイル名と詳細設定 <ChevronRight size={17} />
-          </button>
+          <div className="settings-footer">
+            <div className="filename-inline" title={templatePath ? exampleName : undefined}>
+              <small>出力ファイル名の例</small>
+              <code>{templatePath ? exampleName : "テンプレート選択後に表示します"}</code>
+            </div>
+            <button className="details" disabled={busy} onClick={() => setSettingsOpen(true)}>
+              ファイル名と詳細設定 <ChevronRight size={17} />
+            </button>
+          </div>
         </section>
-
-        {templatePath && (
-          <section className="filename">
-            <small>出力ファイル名の例</small>
-            <code>{exampleName}</code>
-          </section>
-        )}
 
         {busy && progress && (
           <section className="progress-card" aria-live="polite">
@@ -554,6 +579,7 @@ export default function App() {
         )}
       </main>
 
+      {helpOpen && <HelpGuide onClose={() => setHelpOpen(false)} />}
       {settingsOpen && (
         <div className="overlay" onMouseDown={() => setSettingsOpen(false)}>
           <aside className="drawer" onMouseDown={(event) => event.stopPropagation()}>
