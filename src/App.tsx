@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import {
   Check,
@@ -17,7 +18,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import type { DataPreview, GenerateResult, Settings } from "./types";
+import type { DataPreview, GenerateResult, GenerationProgress, Settings } from "./types";
 
 const defaults: Settings = {
   outputFormat: "word",
@@ -140,10 +141,17 @@ export default function App() {
   const [status, setStatus] = useState("準備完了");
   const [result, setResult] = useState<GenerateResult | null>(null);
   const [error, setError] = useState("");
+  const [progress, setProgress] = useState<GenerationProgress | null>(null);
 
   useEffect(() => {
     localStorage.setItem("wordBatchSettings", JSON.stringify(settings));
   }, [settings]);
+
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    listen<GenerationProgress>("generation-progress", (event) => setProgress(event.payload)).then((fn) => { unlisten = fn; });
+    return () => { if (unlisten) unlisten(); };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -256,7 +264,8 @@ export default function App() {
     setBusy(true);
     setError("");
     setResult(null);
-    setStatus("Wordファイルを作成しています...");
+    setProgress({ type: "progress", stage: "prepare", label: "処理を開始しています", current: 0, total: preview?.included_count || 0, percent: 0, detail: "", state: "running" });
+    setStatus("処理を開始しています...");
     try {
       const response = await invoke<GenerateResult>("generate_documents", {
         request: {
@@ -275,9 +284,11 @@ export default function App() {
         },
       });
       setResult(response);
+      setProgress({ type: "progress", stage: "complete", label: "処理が完了しました", current: response.generated_count, total: response.generated_count, percent: 100, detail: "", state: "done" });
       setStatus("完了");
     } catch (reason) {
       setError(String(reason));
+      setProgress((current) => current ? { ...current, state: "error", label: `${current.label}でエラーが発生しました` } : null);
       setStatus("処理エラー");
     } finally {
       setBusy(false);
@@ -302,6 +313,7 @@ export default function App() {
     setResult(null);
     setError("");
     setStatus("準備完了");
+    setProgress(null);
     setPreviewOpen(false);
     setResetConfirmOpen(false);
   }
@@ -345,7 +357,7 @@ export default function App() {
           <button className="icon-button" onClick={() => setDark((value) => !value)} aria-label="テーマ切替">
             {dark ? <Sun size={18} /> : <Moon size={18} />}
           </button>
-          <button className="icon-button" onClick={() => setSettingsOpen(true)} aria-label="設定">
+          <button className="icon-button" disabled={busy} onClick={() => setSettingsOpen(true)} aria-label="設定">
             <SettingsIcon size={18} />
           </button>
         </div>
@@ -420,6 +432,27 @@ export default function App() {
           </section>
         )}
 
+        {busy && progress && (
+          <section className="progress-card" aria-live="polite">
+            <div className="progress-heading"><div><strong>{progress.label}</strong><p>{progress.detail || "処理が完了するまで、この画面を閉じずにお待ちください。"}</p></div><span>{progress.percent == null ? "処理中" : `${progress.percent}%`}</span></div>
+            <div className={progress.percent == null ? "progress-track indeterminate" : "progress-track"}><span style={progress.percent == null ? undefined : { width: `${progress.percent}%` }} /></div>
+            <div className="progress-meta"><span>{progress.current > 0 && progress.total > 0 ? `${progress.current} / ${progress.total}件` : "処理を準備中"}</span><span>{progress.stage === "fallback" ? "通常方式へ切替" : ""}</span></div>
+            <div className="stage-list">
+              {[
+                ["prepare", "データ準備"],
+                ["word", settings.outputFormat === "pdf" ? "PDF変換用文書の作成" : "Word文書作成"],
+                ...(settings.outputFormat === "pdf" ? [["pdf", "PDF変換"], ...(settings.outputMethod === "folder" && settings.fastPdfSplitEnabled ? [["split", "個別PDFへ分割"]] : [])] : []),
+                ...(settings.outputMethod === "zip" ? [["zip", "ZIP作成"]] : []),
+                ["complete", "完了処理"],
+              ].map(([key, label], index, all) => {
+                const currentIndex = all.findIndex(([stage]) => stage === progress.stage);
+                const state = progress.stage === "fallback" ? (key === "word" ? "active" : index < 1 ? "done" : "waiting") : index < currentIndex ? "done" : index === currentIndex ? "active" : "waiting";
+                return <div className={`stage-item ${state}`} key={key}><span>{state === "done" ? "✓" : state === "active" ? "●" : "○"}</span><strong>{label}</strong><small>{state === "done" ? "完了" : state === "active" ? "実行中" : "待機中"}</small></div>;
+              })}
+            </div>
+          </section>
+        )}
+
         {error && (
           <section className="error" role="alert">
             <strong>処理できませんでした</strong>
@@ -436,7 +469,7 @@ export default function App() {
               <p>{result.output_path}</p>
               <div className="success-actions">
                 <button className="primary" onClick={openOutputFolder}><FolderOpen size={16} />出力先を開く</button>
-                <button onClick={requestReset}><RotateCcw size={16} />新しく作成</button>
+                <button onClick={() => { setResult(null); setProgress(null); setStatus("準備完了"); }}><X size={16} />閉じる</button>
               </div>
             </div>
           </section>

@@ -42,3 +42,14 @@ export interface GenerateResult {
   format?: OutputFormat;
   method?: OutputMethod;
 }
+
+export interface GenerationProgress {
+  type: "progress";
+  stage: string;
+  label: string;
+  current: number;
+  total: number;
+  percent: number | null;
+  detail: string;
+  state: "running" | "done" | "notice" | "error";
+}
