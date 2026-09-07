@@ -45,6 +45,11 @@ fn execute_backend(app: &AppHandle, command: &str, request: Value) -> Result<Val
 }
 
 #[tauri::command]
+fn warmup_backend(app: AppHandle) -> Result<Value, String> {
+    execute_backend(&app, "warmup", serde_json::json!({}))
+}
+
+#[tauri::command]
 fn inspect_data(app: AppHandle, request: Value) -> Result<Value, String> {
     execute_backend(&app, "inspect", request)
 }
@@ -56,13 +61,11 @@ fn generate_documents(app: AppHandle, request: Value) -> Result<Value, String> {
 
 #[tauri::command]
 fn open_output_folder(path: String) -> Result<(), String> {
-    let folder = Path::new(&path);
-    if !folder.exists() {
+    let requested = Path::new(&path);
+    if !requested.exists() {
         return Err(format!("出力先フォルダが見つかりません。\n{path}"));
     }
-    if !folder.is_dir() {
-        return Err(format!("指定された出力先はフォルダではありません。\n{path}"));
-    }
+    let folder = if requested.is_dir() { requested } else { requested.parent().ok_or_else(|| format!("出力先を特定できません。\n{path}"))? };
 
     #[cfg(target_os = "windows")]
     {
@@ -95,6 +98,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
+            warmup_backend,
             inspect_data,
             generate_documents,
             open_output_folder
