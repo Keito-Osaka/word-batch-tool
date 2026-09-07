@@ -177,9 +177,11 @@ export default function App() {
           if (warmupState !== "ready") throw new Error("文書処理の準備が完了してから置換データをドロップしてください。");
           setDataPath(classified.data_path); accepted.push("置換データ"); await inspect(classified.data_path);
         }
-        if (classified.unsupported_paths.length) setError(`対応していないファイル形式です。
-${classified.unsupported_paths.join("
-")}`); else setError("");
+        if (classified.unsupported_paths.length) {
+          setError(`対応していないファイル形式です。\n${classified.unsupported_paths.join("\n")}`);
+        } else {
+          setError("");
+        }
         if (accepted.length) { setResult(null); setDropNotice(`${accepted.join("・")}を選択しました`); window.setTimeout(() => setDropNotice(""), 2400); }
       } catch (reason) { setError(String(reason)); }
     }).then((fn) => { unlisten = fn; });
