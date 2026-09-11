@@ -430,9 +430,9 @@ def replace_text_in_paragraph(paragraph, replacements):
         target_run = existing_runs[i] if i < len(existing_runs) else paragraph.add_run()
         source_run = existing_runs[segment["source_run_index"]]
         copy_run_format(source_run, target_run)
+        # copy_run_format()で置換元の書式を複製済みのため、数字を含む場合も
+        # フォント名を上書きせず、テンプレート側の指定をそのまま維持する。
         target_run.text = segment["text"]
-        if segment["is_replacement"] and re.search(r"\d", segment["text"]):
-            set_run_font_all(target_run, get_run_preferred_font(source_run))
 
 
 def replace_text_in_table(table, replacements):
