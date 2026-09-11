@@ -201,7 +201,8 @@ function HelpGuide({ onClose }: { onClose: () => void }) {
             {section === "history" && (
               <div className="help-section">
                 <h3>更新履歴</h3>
-                <article className="release-card"><div><strong>Version 1.0.0</strong><span>初回正式版</span></div><ul><li>Word・PDFの個別、結合、ZIP出力に対応</li><li>Excel・CSV、ドラッグ＆ドロップ、進捗表示に対応</li><li>ファイル名設定、データ確認、ライト・ダークテーマを実装</li><li>金額列の3桁区切りと対象キーワード編集に対応</li></ul></article>
+                <article className="release-card"><div><strong>Version 1.1.0</strong><span>操作性・互換性の改善</span></div><ul><li>数字を含む置換値でもテンプレートのフォントを維持するよう修正</li><li>初回セットアップと文書処理をバックグラウンド化し、画面の応答性を改善</li><li>初回セットアップの所要時間案内を改善</li><li>準備中もテンプレート、置換データ、出力先を選択可能に変更</li><li>準備中に選択したファイルを、完了後に自動確認する機能を追加</li></ul></article>
+                <article className="release-card release-card-previous"><div><strong>Version 1.0.0</strong><span>初回正式版</span></div><ul><li>Word・PDFの個別、結合、ZIP出力に対応</li><li>Excel・CSV、ドラッグ＆ドロップ、進捗表示に対応</li><li>ファイル名設定、データ確認、ライト・ダークテーマを実装</li><li>金額列の3桁区切りと対象キーワード編集に対応</li></ul></article>
                 <p className="help-footnote">更新履歴はVersion 1.0.0以降を掲載します。</p>
               </div>
             )}
@@ -209,7 +210,7 @@ function HelpGuide({ onClose }: { onClose: () => void }) {
             {section === "about" && (
               <div className="help-section">
                 <h3>このアプリについて</h3>
-                <div className="about-card"><div className="about-symbol"><FileText size={24} /></div><div><strong>Wordファイル一括作成</strong><span>Version 1.0.0</span></div></div>
+                <div className="about-card"><div className="about-symbol"><FileText size={24} /></div><div><strong>Wordファイル一括作成</strong><span>Version 1.1.0</span></div></div>
                 <div className="help-rule-list about-list">
                   <p><strong>制作者</strong><span>今井 啓登</span></p>
                   <p><strong>連絡先</strong><span><a href="mailto:ImaiK@mbox.pref.osaka.lg.jp">ImaiK@mbox.pref.osaka.lg.jp</a></span></p>
