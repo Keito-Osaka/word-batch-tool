@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
@@ -273,9 +273,12 @@ export default function App() {
   const [progress, setProgress] = useState<GenerationProgress | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const [dropNotice, setDropNotice] = useState("");
-  const [templateWarmupState, setTemplateWarmupState] = useState<"idle" | "running" | "ready" | "error">("idle");
-  const [dataLoadState, setDataLoadState] = useState<"idle" | "running" | "ready" | "error">("idle");
+  const [templateWarmupState, setTemplateWarmupState] = useState<"idle" | "queued" | "running" | "ready" | "error">("idle");
+  const [dataLoadState, setDataLoadState] = useState<"idle" | "queued" | "running" | "ready" | "error">("idle");
   const [amountKeywordInput, setAmountKeywordInput] = useState("");
+  const [isFirstSetup] = useState(() => localStorage.getItem("wordBatchSetupCompleted") !== "1");
+  const pendingTemplateRef = useRef<string | null>(null);
+  const pendingDataRef = useRef<string | null>(null);
 
   useEffect(() => {
     localStorage.setItem("wordBatchSettings", JSON.stringify(settings));
@@ -298,11 +301,16 @@ export default function App() {
       try {
         const classified = await invoke<DroppedPathClassification>("classify_dropped_paths", { paths: event.payload.paths });
         const accepted: string[] = [];
-        if (classified.template_path) { setTemplatePath(classified.template_path); accepted.push("テンプレート"); await prepareTemplate(classified.template_path); }
+        if (classified.template_path) {
+          setTemplatePath(classified.template_path); accepted.push("テンプレート"); setResult(null);
+          if (warmupState === "ready") await prepareTemplate(classified.template_path);
+          else { pendingTemplateRef.current = classified.template_path; setTemplateWarmupState("queued"); }
+        }
         if (classified.output_path) { setOutputPath(classified.output_path); accepted.push("出力先"); }
         if (classified.data_path) {
-          if (warmupState !== "ready") throw new Error("文書処理の準備が完了してから置換データをドロップしてください。");
-          setDataPath(classified.data_path); accepted.push("置換データ"); await inspect(classified.data_path);
+          setDataPath(classified.data_path); accepted.push("置換データ"); setResult(null);
+          if (warmupState === "ready") await inspect(classified.data_path);
+          else { pendingDataRef.current = classified.data_path; setDataLoadState("queued"); }
         }
         if (classified.unsupported_paths.length) {
           setError(`対応していないファイル形式です。\n${classified.unsupported_paths.join("\n")}`);
@@ -320,7 +328,10 @@ export default function App() {
     (async () => {
       try {
         await invoke("warmup_backend");
-        if (active) setWarmupState("ready");
+        if (active) {
+          localStorage.setItem("wordBatchSetupCompleted", "1");
+          setWarmupState("ready");
+        }
       } catch (reason) {
         if (active) {
           setWarmupError(String(reason));
@@ -330,6 +341,20 @@ export default function App() {
     })();
     return () => { active = false; };
   }, []);
+
+  useEffect(() => {
+    if (warmupState !== "ready") return;
+    let cancelled = false;
+    (async () => {
+      const queuedTemplate = pendingTemplateRef.current;
+      pendingTemplateRef.current = null;
+      if (queuedTemplate && !cancelled) await prepareTemplate(queuedTemplate);
+      const queuedData = pendingDataRef.current;
+      pendingDataRef.current = null;
+      if (queuedData && !cancelled) await inspect(queuedData);
+    })();
+    return () => { cancelled = true; };
+  }, [warmupState]);
 
   useEffect(() => {
     if (!preview) return;
@@ -382,7 +407,8 @@ export default function App() {
       setTemplatePath(path);
       setResult(null);
       setError("");
-      await prepareTemplate(path);
+      if (warmupState === "ready") await prepareTemplate(path);
+      else { pendingTemplateRef.current = path; setTemplateWarmupState("queued"); }
     }
   }
 
@@ -394,7 +420,8 @@ export default function App() {
     if (typeof path === "string") {
       setDataPath(path);
       setResult(null);
-      await inspect(path);
+      if (warmupState === "ready") await inspect(path);
+      else { pendingDataRef.current = path; setDataLoadState("queued"); }
     }
   }
 
@@ -487,6 +514,8 @@ export default function App() {
   }
 
   function resetWork() {
+    pendingTemplateRef.current = null;
+    pendingDataRef.current = null;
     setTemplatePath("");
     setTemplateWarmupState("idle");
     setDataPath("");
@@ -587,20 +616,20 @@ export default function App() {
         {warmupState === "running" && (
           <section className="warmup-card" aria-live="polite">
             <span className="warmup-spinner" />
-            <div><strong>文書処理を準備しています</strong><p>初回のみ数秒かかることがあります。準備が整うと置換データを選択できます。</p></div>
+            <div><strong>{isFirstSetup ? "初回セットアップを行っています" : "文書処理を準備しています"}</strong><p>{isFirstSetup ? "初回起動時のみ10～20秒ほどかかることがあります。準備中もテンプレート、置換データ、出力先を選択できます。" : "まもなく利用できます。準備中も各ファイルを選択できます。"}</p></div>
           </section>
         )}
         {warmupState === "error" && (
           <section className="error" role="alert"><strong>文書処理を準備できませんでした</strong><p>{warmupError}</p></section>
         )}
         <section className="picker-grid">
-          <Picker kind="word" title="テンプレート" path={templatePath} disabled={busy} meta={templateWarmupState === "running" ? "テンプレートを確認しています…" : templateWarmupState === "ready" ? "読み込みが完了しました" : undefined} onPick={chooseTemplate} />
+          <Picker kind="word" title="テンプレート" path={templatePath} disabled={busy} meta={templateWarmupState === "queued" ? "セットアップ完了後に確認します" : templateWarmupState === "running" ? "テンプレートを確認しています…" : templateWarmupState === "ready" ? "読み込みが完了しました" : undefined} onPick={chooseTemplate} />
           <Picker
             kind="excel"
             title="置換データ"
             path={dataPath}
-            disabled={busy || warmupState !== "ready"}
-            meta={warmupState === "running" ? "文書処理の準備が整うまでお待ちください" : dataLoadState === "running" ? "置換データを確認しています…" : dataLoadState === "ready" ? "読み込みが完了しました" : undefined}
+            disabled={busy}
+            meta={dataLoadState === "queued" ? "セットアップ完了後に確認します" : dataLoadState === "running" ? "置換データを確認しています…" : dataLoadState === "ready" ? "読み込みが完了しました" : undefined}
             onPick={chooseData}
           />
         </section>
@@ -696,7 +725,7 @@ export default function App() {
           <section className="runbar">
             <div>
               <span><strong>{preview?.included_count || 0}件</strong>の{settings.outputFormat === "pdf" ? "PDF" : "Word"}を{settings.outputMethod === "folder" ? "個別作成" : settings.outputMethod === "merged" ? "結合して作成" : "ZIPにまとめて作成"}します</span>
-              <small>{status}</small>
+              <small>{warmupState === "running" ? (isFirstSetup ? "初回セットアップ中です" : "文書処理を準備しています") : status}</small>
             </div>
             <div className="run-actions">
               <button className="primary" disabled={!canRun} onClick={generate}>
