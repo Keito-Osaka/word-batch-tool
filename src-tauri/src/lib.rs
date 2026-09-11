@@ -73,26 +73,35 @@ fn execute_backend(
 }
 
 #[tauri::command]
-fn warmup_backend(app: AppHandle) -> Result<Value, String> {
-    execute_backend(&app, "warmup", serde_json::json!({}))
+async fn warmup_backend(app: AppHandle) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        execute_backend(&app, "warmup", serde_json::json!({}))
+    })
+    .await
+    .map_err(|e| format!("ウォームアップ処理の実行に失敗しました: {e}"))?
 }
 
 #[tauri::command]
-fn warmup_template(app: AppHandle, template_path: String) -> Result<Value, String> {
-    execute_backend(
-        &app,
-        "warmup-template",
-        serde_json::json!({"template_path": template_path}),
-    )
+async fn warmup_template(app: AppHandle, template_path: String) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        execute_backend(
+            &app,
+            "warmup-template",
+            serde_json::json!({"template_path": template_path}),
+        )
+    })
+    .await
+    .map_err(|e| format!("テンプレート確認処理の実行に失敗しました: {e}"))?
 }
 
 #[tauri::command]
-fn inspect_data(app: AppHandle, request: Value) -> Result<Value, String> {
-    execute_backend(&app, "inspect", request)
+async fn inspect_data(app: AppHandle, request: Value) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || execute_backend(&app, "inspect", request))
+        .await
+        .map_err(|e| format!("置換データ確認処理の実行に失敗しました: {e}"))?
 }
 
-#[tauri::command]
-fn generate_documents(app: AppHandle, request: Value) -> Result<Value, String> {
+fn generate_documents_blocking(app: AppHandle, request: Value) -> Result<Value, String> {
     let mut child = spawn_backend(&app, "generate", request)?;
     let stdout = child
         .stdout
@@ -142,6 +151,13 @@ fn generate_documents(app: AppHandle, request: Value) -> Result<Value, String> {
     }
 
     result.ok_or_else(|| "処理結果を取得できませんでした。".to_string())
+}
+
+#[tauri::command]
+async fn generate_documents(app: AppHandle, request: Value) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || generate_documents_blocking(app, request))
+        .await
+        .map_err(|e| format!("文書生成処理の実行に失敗しました: {e}"))?
 }
 
 #[tauri::command]
