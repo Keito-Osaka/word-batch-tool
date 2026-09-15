@@ -1,10 +1,12 @@
 export type OutputFormat = "word" | "pdf";
 export type OutputMethod = "folder" | "merged" | "zip";
 export type ExcludeMode =
+  | "none"
   | "any_empty_except_first"
   | "any_empty"
   | "all_empty_except_first"
-  | "selected_column_number_empty";
+  | "selected_columns_all_empty"
+  | "selected_columns_any_empty";
 
 export interface Settings {
   outputFormat: OutputFormat;
@@ -14,7 +16,9 @@ export interface Settings {
   formatAmountWithComma: boolean;
   amountIncludeKeywords: string[];
   rowExcludeMode: ExcludeMode;
-  targetColumnNumber: number;
+  excludeExampleRows: boolean;
+  rowExcludeColumns: string[];
+  targetColumnNumber?: number;
   filenameKeys: string[];
   fastPdfSplitEnabled: boolean;
 }
@@ -33,6 +37,7 @@ export interface DataPreview {
   columns: string[];
   included_rows: Record<string, string>[];
   excluded_rows: ExcludedRow[];
+  exclusion_summary?: string;
 }
 
 export interface GenerateResult {

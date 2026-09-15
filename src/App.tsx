@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import type { DataPreview, DroppedPathClassification, GenerateResult, GenerationProgress, Settings } from "./types";
 
+const APP_VERSION = "Ver.1.2.0";
 const DEFAULT_AMOUNT_INCLUDE_KEYWORDS = [
   "交付申請額",
   "交付決定額",
@@ -39,7 +40,9 @@ const defaults: Settings = {
   serialDigits: 2,
   formatAmountWithComma: true,
   amountIncludeKeywords: DEFAULT_AMOUNT_INCLUDE_KEYWORDS,
-  rowExcludeMode: "selected_column_number_empty",
+  rowExcludeMode: "selected_columns_any_empty",
+  excludeExampleRows: true,
+  rowExcludeColumns: [],
   targetColumnNumber: 2,
   filenameKeys: [],
   fastPdfSplitEnabled: true,
@@ -56,7 +59,10 @@ const loadSettings = (): Settings => {
     const amountIncludeKeywords = Array.isArray(saved.amountIncludeKeywords)
       ? saved.amountIncludeKeywords
       : DEFAULT_AMOUNT_INCLUDE_KEYWORDS;
-    return { ...defaults, ...saved, filenameKeys, addSerialNumber, amountIncludeKeywords };
+    const oldMode = saved.rowExcludeMode === "selected_column_number_empty" ? "selected_columns_any_empty" : saved.rowExcludeMode;
+    const rowExcludeColumns = Array.isArray(saved.rowExcludeColumns) ? saved.rowExcludeColumns : [];
+    return { ...defaults, ...saved, rowExcludeMode: oldMode ?? defaults.rowExcludeMode, rowExcludeColumns,
+      excludeExampleRows: saved.excludeExampleRows ?? true, filenameKeys, addSerialNumber, amountIncludeKeywords };
   } catch {
     return defaults;
   }
@@ -108,7 +114,7 @@ function Picker({
       <span className="picker-icon"><Icon size={20} /></span>
       <span className="picker-body">
         <small>{title}</small>
-        <strong>{path ? path.split(/[\\/]/).pop() : "クリックして選択"}</strong>
+        <strong>{path ? path.split(/[\\/]/).pop() : kind === "folder" ? "フォルダを選択" : "ファイルを選択"}</strong>
         <span>{meta || (path ? "選択済み" : "クリックして選択、または画面へドラッグ＆ドロップ")}</span>
       </span>
       <span className="change">{path ? "変更" : "選択"}</span>
@@ -193,7 +199,7 @@ function HelpGuide({ onClose }: { onClose: () => void }) {
                   <p><strong>同名ファイル</strong><span>上書きせず、末尾に番号を付加</span></p>
                 </div>
                 <div className="help-note"><strong>ファイル名の識別</strong><p>初期状態では通し番号が付きます。通し番号を付けない場合は、ファイル名に使用する列を1つ以上選択してください。</p></div>
-                <div className="help-note"><strong>金額の3桁区切り</strong><p>対象として登録したキーワードを列名に含む列は、100000を100,000のように整形します。対象キーワードは「ファイル名と詳細設定」の金額欄で追加・削除できます。</p></div>
+                <div className="help-note"><strong>数値のカンマ区切り</strong><p>登録したキーワードを列名に含む列の値を、カンマ区切り形式へ整形します。対象キーワードは「ファイル名と詳細設定」の金額欄で追加・削除できます。</p></div>
                 <div className="help-note"><strong>PDF出力</strong><p>PDF作成には、デスクトップ版Microsoft Wordが必要です。</p></div>
               </div>
             )}
@@ -201,16 +207,17 @@ function HelpGuide({ onClose }: { onClose: () => void }) {
             {section === "history" && (
               <div className="help-section">
                 <h3>更新履歴</h3>
-                <article className="release-card"><div><strong>Version 1.1.0</strong><span>操作性・互換性の改善</span></div><ul><li>数字を含む置換値でもテンプレートのフォントを維持するよう修正</li><li>初回セットアップと文書処理をバックグラウンド化し、画面の応答性を改善</li><li>初回セットアップの所要時間案内を改善</li><li>準備中もテンプレート、置換データ、出力先を選択可能に変更</li><li>準備中に選択したファイルを、完了後に自動確認する機能を追加</li></ul></article>
-                <article className="release-card release-card-previous"><div><strong>Version 1.0.0</strong><span>初回正式版</span></div><ul><li>Word・PDFの個別、結合、ZIP出力に対応</li><li>Excel・CSV、ドラッグ＆ドロップ、進捗表示に対応</li><li>ファイル名設定、データ確認、ライト・ダークテーマを実装</li><li>金額列の3桁区切りと対象キーワード編集に対応</li></ul></article>
-                <p className="help-footnote">更新履歴はVersion 1.0.0以降を掲載します。</p>
+                <article className="release-card"><div><strong>{APP_VERSION}</strong><span>設定とデータ除外の改善</span></div><ul><li>詳細設定を中央モーダルへ変更</li><li>記入例行の除外を選択可能に変更</li><li>除外なし、複数列のAND・OR条件を追加</li><li>除外理由と条件概要の表示を改善</li><li>数値のカンマ区切りとして名称と説明を整理</li></ul></article>
+                <article className="release-card"><div><strong>Ver.1.1.0</strong><span>操作性・互換性の改善</span></div><ul><li>数字を含む置換値でもテンプレートのフォントを維持するよう修正</li><li>初回セットアップと文書処理をバックグラウンド化し、画面の応答性を改善</li><li>初回セットアップの所要時間案内を改善</li><li>準備中もテンプレート、置換データ、出力先を選択可能に変更</li><li>準備中に選択したファイルを、完了後に自動確認する機能を追加</li></ul></article>
+                <article className="release-card release-card-previous"><div><strong>Ver.1.0.0</strong><span>初回正式版</span></div><ul><li>Word・PDFの個別、結合、ZIP出力に対応</li><li>Excel・CSV、ドラッグ＆ドロップ、進捗表示に対応</li><li>ファイル名設定、データ確認、ライト・ダークテーマを実装</li><li>金額列の3桁区切りと対象キーワード編集に対応</li></ul></article>
+                <p className="help-footnote">更新履歴はVer.1.0.0以降を掲載します。</p>
               </div>
             )}
 
             {section === "about" && (
               <div className="help-section">
                 <h3>このアプリについて</h3>
-                <div className="about-card"><div className="about-symbol"><FileText size={24} /></div><div><strong>Wordファイル一括作成</strong><span>Version 1.1.0</span></div></div>
+                <div className="about-card"><div className="about-symbol"><FileText size={24} /></div><div><strong>Wordファイル一括作成</strong><span>{APP_VERSION}</span></div></div>
                 <div className="help-rule-list about-list">
                   <p><strong>制作者</strong><span>今井 啓登</span></p>
                   <p><strong>連絡先</strong><span><a href="mailto:ImaiK@mbox.pref.osaka.lg.jp">ImaiK@mbox.pref.osaka.lg.jp</a></span></p>
@@ -256,6 +263,7 @@ function Confirmation({
 export default function App() {
   const [dark, setDark] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsSection, setSettingsSection] = useState<"filename" | "exclude" | "numeric" | "pdf">("filename");
   const [helpOpen, setHelpOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewTab, setPreviewTab] = useState<"included" | "excluded">("included");
@@ -322,7 +330,7 @@ export default function App() {
       } catch (reason) { setError(String(reason)); }
     }).then((fn) => { unlisten = fn; });
     return () => { if (unlisten) unlisten(); };
-  }, [busy, warmupState, settings.formatAmountWithComma, settings.rowExcludeMode, settings.targetColumnNumber]);
+  }, [busy, warmupState, settings.formatAmountWithComma, settings.rowExcludeMode, settings.rowExcludeColumns.join("|"), settings.excludeExampleRows, settings.targetColumnNumber]);
 
   useEffect(() => {
     let active = true;
@@ -362,11 +370,12 @@ export default function App() {
     setSettings((current) => ({
       ...current,
       filenameKeys: current.filenameKeys.filter((key) => preview.columns.includes(key)),
+      rowExcludeColumns: current.rowExcludeColumns.filter((key) => preview.columns.includes(key)),
     }));
   }, [preview?.columns.join("|")]);
 
   const canRun = Boolean(
-    templatePath && dataPath && outputPath && preview?.included_count && !busy && warmupState === "ready" && templateWarmupState !== "running" && (settings.addSerialNumber || settings.filenameKeys.length > 0),
+    templatePath && dataPath && outputPath && preview?.included_count && !busy && warmupState === "ready" && templateWarmupState !== "running" && (!(settings.rowExcludeMode.startsWith("selected_columns")) || settings.rowExcludeColumns.length > 0) && (settings.addSerialNumber || settings.filenameKeys.length > 0),
   );
   const hasWork = Boolean(templatePath || dataPath || outputPath || preview || result || error);
 
@@ -448,6 +457,8 @@ export default function App() {
           format_amount_with_comma: settings.formatAmountWithComma,
           amount_include_keywords: settings.amountIncludeKeywords,
           row_exclude_mode: settings.rowExcludeMode,
+          row_exclude_columns: settings.rowExcludeColumns,
+          exclude_example_rows: settings.excludeExampleRows,
           row_exclude_target_column_number: settings.targetColumnNumber,
           output_format: settings.outputFormat,
           output_method: settings.outputMethod,
@@ -486,6 +497,8 @@ export default function App() {
           format_amount_with_comma: settings.formatAmountWithComma,
           amount_include_keywords: settings.amountIncludeKeywords,
           row_exclude_mode: settings.rowExcludeMode,
+          row_exclude_columns: settings.rowExcludeColumns,
+          exclude_example_rows: settings.excludeExampleRows,
           row_exclude_target_column_number: settings.targetColumnNumber,
           output_format: settings.outputFormat,
           output_method: settings.outputMethod,
@@ -597,7 +610,7 @@ export default function App() {
           <div className="app-symbol" aria-hidden="true"><FileText size={19} /></div>
           <div>
             <span className="eyebrow">DOCUMENT AUTOMATION</span>
-            <h1>Wordファイル一括作成</h1>
+            <div className="title-row"><h1>Wordファイル一括作成</h1><span className="version-badge">{APP_VERSION}</span></div>
             <p>テンプレートと置換データから、文書をすばやく作成します。</p>
           </div>
         </div>
@@ -741,153 +754,38 @@ export default function App() {
 
       {helpOpen && <HelpGuide onClose={() => setHelpOpen(false)} />}
       {settingsOpen && (
-        <div className="overlay" onMouseDown={() => setSettingsOpen(false)}>
-          <aside className="drawer" onMouseDown={(event) => event.stopPropagation()}>
-            <div className="drawer-head">
-              <div><h2>詳細設定</h2><p>変更内容は自動保存されます。</p></div>
-              <button className="icon-button" onClick={() => setSettingsOpen(false)}><X size={18} /></button>
-            </div>
-            <div className="drawer-body">
-              <h3>ファイル名</h3>
-              <label className="check">
-                <input
-                  type="checkbox"
-                  checked={settings.addSerialNumber}
-                  disabled={settings.filenameKeys.length === 0}
-                  onChange={(event) => setSettings((current) => ({ ...current, addSerialNumber: event.target.checked || current.filenameKeys.length === 0 }))}
-                />
-                先頭に通し番号を付ける
-              </label>
-              {settings.filenameKeys.length === 0 && <small className="setting-note">列が選択されていないため、通し番号は必須です。</small>}
-              <label>
-                桁数
-                <input
-                  type="number"
-                  min="1"
-                  max="6"
-                  disabled={!settings.addSerialNumber}
-                  value={settings.serialDigits}
-                  onChange={(event) => setSettings((current) => ({ ...current, serialDigits: Math.min(6, Math.max(1, Number(event.target.value) || 1)) }))}
-                />
-              </label>
-
-              <div className="setting-subhead">
-                <strong>ファイル名に使用する列</strong>
-                <small>選択した順にファイル名へ追加します。</small>
+        <div className="overlay center-overlay" onMouseDown={() => setSettingsOpen(false)}>
+          <section className="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-title" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="drawer-head"><div><h2 id="settings-title">詳細設定</h2><p>変更内容は自動保存されます。</p></div><button className="icon-button" onClick={() => setSettingsOpen(false)}><X size={18} /></button></div>
+            <div className="settings-layout">
+              <nav className="settings-nav">
+                <button className={settingsSection === "filename" ? "active" : ""} onClick={() => setSettingsSection("filename")}>ファイル名</button>
+                <button className={settingsSection === "exclude" ? "active" : ""} onClick={() => setSettingsSection("exclude")}>行の除外</button>
+                <button className={settingsSection === "numeric" ? "active" : ""} onClick={() => setSettingsSection("numeric")}>数値の整形</button>
+                <button className={settingsSection === "pdf" ? "active" : ""} onClick={() => setSettingsSection("pdf")}>PDF</button>
+              </nav>
+              <div className="settings-content">
+                {settingsSection === "filename" && <section className="setting-panel"><h3>ファイル名</h3>
+                  <div className="serial-row"><label className="check"><input type="checkbox" checked={settings.addSerialNumber} disabled={settings.filenameKeys.length === 0} onChange={(event) => setSettings((c) => ({...c, addSerialNumber:event.target.checked || c.filenameKeys.length===0}))}/>先頭に通し番号を付ける</label><label className="digit-field">桁数<input type="number" min="1" max="6" disabled={!settings.addSerialNumber} value={settings.serialDigits} onChange={(e)=>setSettings(c=>({...c,serialDigits:Math.min(6,Math.max(1,Number(e.target.value)||1))}))}/></label></div>
+                  {settings.filenameKeys.length===0 && <small className="setting-note">列が選択されていないため、通し番号は必須です。</small>}
+                  <div className="setting-subhead"><strong>ファイル名に使用する列</strong><small>選択した順にファイル名へ追加します。</small></div>
+                  {!preview ? <p className="muted-box">置換データを読み込むと列を選択できます。</p> : <><div className="column-choice-list">{preview.columns.map(column=><label className="check column-choice" key={column}><input type="checkbox" checked={settings.filenameKeys.includes(column)} disabled={settings.filenameKeys.includes(column)&&settings.filenameKeys.length===1&&!settings.addSerialNumber} onChange={()=>toggleFilenameKey(column)}/><span>{column}</span></label>)}</div><div className="sort-list">{settings.filenameKeys.map((key,index)=><div className="sort-item" key={key}><span className="sort-number">{index+1}</span><strong>{key}</strong><div><button disabled={index===0} onClick={()=>moveFilenameKey(index,-1)}><ChevronUp size={16}/></button><button disabled={index===settings.filenameKeys.length-1} onClick={()=>moveFilenameKey(index,1)}><ChevronDown size={16}/></button><button disabled={settings.filenameKeys.length===1&&!settings.addSerialNumber} onClick={()=>toggleFilenameKey(key)}><Trash2 size={16}/></button></div></div>)}</div></>}
+                  <div className="drawer-preview"><small>出力例</small><code>{exampleName}</code></div>
+                </section>}
+                {settingsSection === "exclude" && <section className="setting-panel"><h3>行の除外</h3>
+                  <label className="check example-toggle"><input type="checkbox" checked={settings.excludeExampleRows} onChange={(e)=>setSettings(c=>({...c,excludeExampleRows:e.target.checked}))}/>1列目に「例」を含む行を除外する</label><small className="setting-note">必要なデータにも「例」が含まれる場合はOFFにしてください。</small>
+                  <label className="field-label">空欄による除外条件<select value={settings.rowExcludeMode} onChange={(e)=>setSettings(c=>({...c,rowExcludeMode:e.target.value as Settings["rowExcludeMode"]}))}><option value="none">何も除外しない</option><option value="any_empty_except_first">1列目以外に空欄があれば除外</option><option value="any_empty">どこかに空欄があれば除外</option><option value="all_empty_except_first">1列目以外がすべて空なら除外</option><option value="selected_columns_all_empty">指定列がすべて空なら除外</option><option value="selected_columns_any_empty">指定列のどれか1つでも空なら除外</option></select></label>
+                  {settings.rowExcludeMode.startsWith("selected_columns") && <><div className="setting-subhead"><strong>除外判定に使用する列</strong><small>{settings.rowExcludeMode==="selected_columns_all_empty"?"選択した列がすべて空欄の場合に除外します。":"選択した列に1つでも空欄がある場合に除外します。"}</small></div>{!preview?<p className="muted-box">置換データを読み込むと列を選択できます。</p>:<div className="column-choice-list">{preview.columns.map(column=><label className="check column-choice" key={column}><input type="checkbox" checked={settings.rowExcludeColumns.includes(column)} onChange={()=>setSettings(c=>({...c,rowExcludeColumns:c.rowExcludeColumns.includes(column)?c.rowExcludeColumns.filter(x=>x!==column):[...c.rowExcludeColumns,column]}))}/><span>{column}</span></label>)}</div>}{settings.rowExcludeColumns.length===0&&<small className="validation-note">除外判定に使用する列を1つ以上選択してください。</small>}</>}
+                  <div className="setting-summary"><strong>現在の除外条件</strong><span>{settings.excludeExampleRows?'記入例を除外':'記入例も使用'} / {settings.rowExcludeMode==='none'?'空欄による除外なし':settings.rowExcludeMode==='selected_columns_all_empty'?'指定列がすべて空なら除外':settings.rowExcludeMode==='selected_columns_any_empty'?'指定列のどれか1つでも空なら除外':settings.rowExcludeMode==='any_empty_except_first'?'1列目以外に空欄があれば除外':settings.rowExcludeMode==='any_empty'?'どこかに空欄があれば除外':'1列目以外がすべて空なら除外'}</span></div>
+                </section>}
+                {settingsSection === "numeric" && <section className="setting-panel"><h3>数値の整形</h3><label className="check"><input type="checkbox" checked={settings.formatAmountWithComma} onChange={(e)=>setSettings(c=>({...c,formatAmountWithComma:e.target.checked}))}/>数値をカンマ区切りにする</label><small className="setting-note">登録したキーワードを列名に含む列の値を、カンマ区切り形式へ整形します。</small><div className={settings.formatAmountWithComma?"amount-keyword-editor":"amount-keyword-editor disabled"}><div className="setting-subhead amount-keyword-heading"><div><strong>対象となる列名キーワード</strong><small>部分一致で判定します。</small></div><button disabled={!settings.formatAmountWithComma} onClick={resetAmountKeywords}>初期設定に戻す</button></div><div className="keyword-tags">{settings.amountIncludeKeywords.length===0?<span className="keyword-empty">対象キーワードがありません。</span>:settings.amountIncludeKeywords.map(keyword=><span className="keyword-tag" key={keyword}>{keyword}<button disabled={!settings.formatAmountWithComma} onClick={()=>removeAmountKeyword(keyword)}><X size={13}/></button></span>)}</div><div className="keyword-add-row"><input type="text" value={amountKeywordInput} disabled={!settings.formatAmountWithComma} placeholder="例：補助対象経費" onChange={(e)=>setAmountKeywordInput(e.target.value)} onKeyDown={(e)=>{if(e.key==='Enter'){e.preventDefault();addAmountKeyword();}}}/><button disabled={!settings.formatAmountWithComma||!amountKeywordInput.trim()} onClick={addAmountKeyword}>追加</button></div></div></section>}
+                {settingsSection === "pdf" && <section className="setting-panel"><h3>PDF</h3><label className="check"><input type="checkbox" checked={settings.fastPdfSplitEnabled} onChange={(e)=>setSettings(c=>({...c,fastPdfSplitEnabled:e.target.checked}))}/>個別PDF出力を高速化する</label><small className="setting-note">分割できない場合は自動的に通常方式へ切り替えます。</small></section>}
               </div>
-              {!preview ? (
-                <p className="muted-box">置換データを読み込むと列を選択できます。</p>
-              ) : (
-                <>
-                  <div className="column-choice-list">
-                    {preview.columns.map((column) => (
-                      <label className="check column-choice" key={column}>
-                        <input
-                          type="checkbox"
-                          checked={settings.filenameKeys.includes(column)}
-                          disabled={settings.filenameKeys.includes(column) && settings.filenameKeys.length === 1 && !settings.addSerialNumber}
-                          onChange={() => toggleFilenameKey(column)}
-                        />
-                        <span>{column}</span>
-                      </label>
-                    ))}
-                  </div>
-                  <div className="sort-list">
-                    {settings.filenameKeys.length === 0 ? (
-                      <p className="empty-selection">列は選択されていません。</p>
-                    ) : settings.filenameKeys.map((key, index) => (
-                      <div className="sort-item" key={key}>
-                        <span className="sort-number">{index + 1}</span>
-                        <strong>{key}</strong>
-                        <div>
-                          <button disabled={index === 0} onClick={() => moveFilenameKey(index, -1)} aria-label="上へ"><ChevronUp size={16} /></button>
-                          <button disabled={index === settings.filenameKeys.length - 1} onClick={() => moveFilenameKey(index, 1)} aria-label="下へ"><ChevronDown size={16} /></button>
-                          <button disabled={settings.filenameKeys.length === 1 && !settings.addSerialNumber} onClick={() => toggleFilenameKey(key)} aria-label="削除"><Trash2 size={16} /></button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              )}
-              <div className="drawer-preview"><small>出力例</small><code>{exampleName}</code></div>
-
-              <h3>行の除外</h3>
-              <label>
-                条件
-                <select
-                  value={settings.rowExcludeMode}
-                  onChange={(event) => setSettings((current) => ({ ...current, rowExcludeMode: event.target.value as Settings["rowExcludeMode"] }))}
-                >
-                  <option value="any_empty_except_first">1列目以外に空欄があれば除外</option>
-                  <option value="any_empty">どこかに空欄があれば除外</option>
-                  <option value="all_empty_except_first">1列目以外がすべて空なら除外</option>
-                  <option value="selected_column_number_empty">指定列が空なら除外</option>
-                </select>
-              </label>
-              <label>
-                指定列番号
-                <input
-                  type="number"
-                  min="1"
-                  disabled={settings.rowExcludeMode !== "selected_column_number_empty"}
-                  value={settings.targetColumnNumber}
-                  onChange={(event) => setSettings((current) => ({ ...current, targetColumnNumber: Math.max(1, Number(event.target.value) || 1) }))}
-                />
-              </label>
-
-              <h3>金額</h3>
-              <label className="check">
-                <input
-                  type="checkbox"
-                  checked={settings.formatAmountWithComma}
-                  onChange={(event) => setSettings((current) => ({ ...current, formatAmountWithComma: event.target.checked }))}
-                />
-                金額を3桁区切りにする
-              </label>
-              <small className="setting-note">登録したキーワードを列名に含む列を、100,000の形式へ整形します。</small>
-              <div className={settings.formatAmountWithComma ? "amount-keyword-editor" : "amount-keyword-editor disabled"}>
-                <div className="setting-subhead amount-keyword-heading">
-                  <div><strong>対象となる列名キーワード</strong><small>部分一致で判定します。</small></div>
-                  <button type="button" disabled={!settings.formatAmountWithComma} onClick={resetAmountKeywords}>初期設定に戻す</button>
-                </div>
-                <div className="keyword-tags">
-                  {settings.amountIncludeKeywords.length === 0 ? (
-                    <span className="keyword-empty">対象キーワードがありません。</span>
-                  ) : settings.amountIncludeKeywords.map((keyword) => (
-                    <span className="keyword-tag" key={keyword}>
-                      {keyword}
-                      <button type="button" disabled={!settings.formatAmountWithComma} onClick={() => removeAmountKeyword(keyword)} aria-label={`${keyword}を削除`}><X size={13} /></button>
-                    </span>
-                  ))}
-                </div>
-                <div className="keyword-add-row">
-                  <input
-                    type="text"
-                    value={amountKeywordInput}
-                    disabled={!settings.formatAmountWithComma}
-                    placeholder="例：補助対象経費"
-                    onChange={(event) => setAmountKeywordInput(event.target.value)}
-                    onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addAmountKeyword(); } }}
-                  />
-                  <button type="button" disabled={!settings.formatAmountWithComma || !amountKeywordInput.trim()} onClick={addAmountKeyword}>追加</button>
-                </div>
-              </div>
-
-              <h3>PDF</h3>
-              <label className="check">
-                <input type="checkbox" checked={settings.fastPdfSplitEnabled} onChange={(event) => setSettings((current) => ({ ...current, fastPdfSplitEnabled: event.target.checked }))} />
-                個別PDF出力を高速化する
-              </label>
-              <small className="setting-note">分割できない場合は自動的に通常方式へ切り替えます。</small>
-
-              <button className="primary full" onClick={async () => { setSettingsOpen(false); if (dataPath) await inspect(); }}>
-                設定を適用
-              </button>
             </div>
-          </aside>
+            <div className="settings-actions"><button onClick={()=>setSettingsOpen(false)}>キャンセル</button><button className="primary" disabled={settings.rowExcludeMode.startsWith("selected_columns")&&settings.rowExcludeColumns.length===0} onClick={async()=>{setSettingsOpen(false);if(dataPath)await inspect();}}>設定を適用</button></div>
+          </section>
         </div>
       )}
-
       {previewOpen && preview && (
         <div className="overlay center-overlay" onMouseDown={() => setPreviewOpen(false)}>
           <section className="preview-modal" onMouseDown={(event) => event.stopPropagation()}>
@@ -902,7 +800,7 @@ export default function App() {
               <button className={previewTab === "included" ? "active" : ""} onClick={() => setPreviewTab("included")}>使用するデータ <span>{preview.included_count}</span></button>
               <button className={previewTab === "excluded" ? "active" : ""} onClick={() => setPreviewTab("excluded")}>除外されたデータ <span>{preview.excluded_count}</span></button>
             </div>
-            <div className="table-help">表の下部にあるスクロールバーで、右側の列まで確認できます。</div>
+            <div className="exclusion-summary"><strong>現在の除外条件</strong><span>{preview.exclusion_summary || "設定なし"}</span></div><div className="table-help">表の下部にあるスクロールバーで、右側の列まで確認できます。</div>
             <div className="table-scroll" tabIndex={0}>
               <table>
                 <thead>
