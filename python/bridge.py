@@ -28,27 +28,49 @@ def load_raw(path):
     df=df.loc[:,[c for c in df.columns if str(c).strip()]]
     if len(df.columns)==0: raise ValueError("使用できる列がありません。")
     return df
-def exclusion_reason(row,mode,target):
-    if mode=="selected_column_number_empty":
-        idx=int(target)-1; return f"「{row.index[idx]}」が空欄" if 0<=idx<len(row.index) else "指定列が範囲外"
-    empty=[]
-    for i,v in enumerate(row.values):
-        if mode=="any_empty_except_first" and i==0: continue
-        if core.is_empty_cell_for_row_exclusion(v): empty.append(str(row.index[i]))
-    if not empty:return "現在の除外条件に一致"
-    names="、".join(f"「{x}」" for x in empty[:3])+("ほか" if len(empty)>3 else "")
-    return names+("がすべて空欄" if mode=="all_empty_except_first" else "が空欄")
+def exclusion_reason(row, mode, columns):
+    empty = [str(c) for c in columns if c in row.index and core.is_empty_cell_for_row_exclusion(row[c])]
+    if mode == "selected_columns_all_empty":
+        return "、".join(f"「{c}」" for c in columns) + "がすべて空欄"
+    if mode == "selected_columns_any_empty":
+        return "、".join(f"「{c}」" for c in empty) + "が空欄"
+    check = list(row.index[1:]) if mode in ("any_empty_except_first", "all_empty_except_first") else list(row.index)
+    empty = [str(c) for c in check if core.is_empty_cell_for_row_exclusion(row[c])]
+    names = "、".join(f"「{c}」" for c in empty[:3]) + ("ほか" if len(empty) > 3 else "")
+    return names + ("がすべて空欄" if mode == "all_empty_except_first" else "が空欄")
+
+def exclusion_summary(mode, columns, exclude_examples):
+    parts = ["1列目に「例」を含む行を除外" if exclude_examples else "記入例行も使用"]
+    labels = {
+        "none": "空欄による除外なし",
+        "any_empty_except_first": "1列目以外に空欄があれば除外",
+        "any_empty": "どこかに空欄があれば除外",
+        "all_empty_except_first": "1列目以外がすべて空なら除外",
+        "selected_columns_all_empty": "指定列がすべて空なら除外",
+        "selected_columns_any_empty": "指定列のどれか1つでも空なら除外",
+    }
+    parts.append(labels.get(mode, mode))
+    if mode.startswith("selected_columns") and columns:
+        parts.append("対象列: " + "、".join(columns))
+    return " / ".join(parts)
+
 def inspect_data(req):
     df=load_raw(req.get("data_path","")); df=core.clean_dataframe_values(df); df=core.format_bank_account_columns(df)
     df=core.format_amount_columns(df,enabled=req.get("format_amount_with_comma",True),include_keywords=req.get("amount_include_keywords"),exclude_keywords=req.get("amount_exclude_keywords"))
-    original=len(df); first=df.columns[0]; mask=df[first].astype(str).str.contains("例",na=False); examples=int(mask.sum()); candidates=df[~mask].copy()
-    mode=req.get("row_exclude_mode",core.DEFAULT_ROW_EXCLUDE_MODE); target=req.get("row_exclude_target_column_number",core.DEFAULT_ROW_EXCLUDE_TARGET_COLUMN_NUMBER)
+    original=len(df); first=df.columns[0]; example_mask=df[first].astype(str).str.contains("例",na=False); examples=int(example_mask.sum())
+    mode=req.get("row_exclude_mode",core.DEFAULT_ROW_EXCLUDE_MODE)
+    columns=[c for c in req.get("row_exclude_columns",[]) if c in df.columns]
+    exclude_examples=req.get("exclude_example_rows",True)
     included=[]; excluded=[]
-    for idx,row in candidates.iterrows():
+    for idx,row in df.iterrows():
         item=row_dict(row)
-        if core.should_exclude_row_by_mode(row,mode,target): excluded.append({"source_row_number":int(idx)+2,"row":item,"reason":exclusion_reason(row,mode,target)})
+        if exclude_examples and bool(example_mask.loc[idx]):
+            excluded.append({"source_row_number":int(idx)+2,"row":item,"reason":"1列目に「例」を含むため除外"})
+        elif core.should_exclude_row_by_mode(row,mode,req.get("row_exclude_target_column_number",1),columns):
+            excluded.append({"source_row_number":int(idx)+2,"row":item,"reason":exclusion_reason(row,mode,columns)})
         else: included.append(item)
-    return {"original_count":original,"example_count":examples,"excluded_count":len(excluded),"included_count":len(included),"columns":[str(c) for c in df.columns],"included_rows":included[:500],"excluded_rows":excluded[:500]}
+    return {"original_count":original,"example_count":examples,"excluded_count":len(excluded),"included_count":len(included),"columns":[str(c) for c in df.columns],"included_rows":included[:500],"excluded_rows":excluded[:500],"exclusion_summary":exclusion_summary(mode,columns,exclude_examples)}
+
 def aggregate_path(template,folder,count,ext):
     stem=core.sanitize_filename_part(os.path.splitext(os.path.basename(template))[0]); base=f"{stem}_{count}件一式.{ext}"; return core.ensure_unique_path(os.path.join(folder,base))
 def warmup():
@@ -80,7 +102,7 @@ def generate(req):
     validate_file(template,"テンプレートWord"); validate_file(data,"置換データファイル")
     if not output: raise ValueError("出力先が指定されていません。")
     os.makedirs(output,exist_ok=True); emit_progress("prepare","置換データを準備しています",0,0,2)
-    df=core.prepare_dataframe(data,format_amount_with_comma=req.get("format_amount_with_comma",True),amount_include_keywords=req.get("amount_include_keywords"),amount_exclude_keywords=req.get("amount_exclude_keywords"),row_exclude_mode=req.get("row_exclude_mode",core.DEFAULT_ROW_EXCLUDE_MODE),row_exclude_target_column_number=req.get("row_exclude_target_column_number",core.DEFAULT_ROW_EXCLUDE_TARGET_COLUMN_NUMBER))
+    df=core.prepare_dataframe(data,format_amount_with_comma=req.get("format_amount_with_comma",True),amount_include_keywords=req.get("amount_include_keywords"),amount_exclude_keywords=req.get("amount_exclude_keywords"),row_exclude_mode=req.get("row_exclude_mode",core.DEFAULT_ROW_EXCLUDE_MODE),row_exclude_target_column_number=req.get("row_exclude_target_column_number",core.DEFAULT_ROW_EXCLUDE_TARGET_COLUMN_NUMBER),row_exclude_columns=req.get("row_exclude_columns",[]),exclude_example_rows=req.get("exclude_example_rows",True))
     count=len(df); emit_progress("prepare","置換データの準備が完了しました",count,count,8,state="done")
     keys=req.get("filename_keys",[]); serial=req.get("add_serial_number",True); digits=req.get("serial_digits",2)
     if not serial and not keys:

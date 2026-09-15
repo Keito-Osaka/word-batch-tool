@@ -20,8 +20,7 @@ DEFAULT_AMOUNT_EXCLUDE_KEYWORDS = [
 ]
 DEFAULT_ROW_EXCLUDE_MODE = "any_empty_except_first"
 DEFAULT_ROW_EXCLUDE_TARGET_COLUMN_NUMBER = 1
-
-
+DEFAULT_EXCLUDE_EXAMPLE_ROWS = True
 # =====================================================
 # DataFrame 読み込み・整形
 # =====================================================
@@ -167,83 +166,60 @@ def is_empty_cell_for_row_exclusion(value):
         return True
     return str(value).strip() == ""
 
-
-def _validate_target_column_number(row_exclude_target_column_number):
+def _selected_values(row, row_exclude_columns=None, row_exclude_target_column_number=1):
+    columns = [str(c) for c in (row_exclude_columns or []) if str(c) in row.index]
+    if columns:
+        return columns, [row[c] for c in columns]
     try:
-        column_number = int(row_exclude_target_column_number)
-    except Exception as e:
-        raise ValueError("除外判定に使う列番号は半角数字で指定してください。") from e
-    if column_number < 1:
-        raise ValueError("除外判定に使う列番号は1以上で指定してください。")
-    return column_number
+        index = max(0, int(row_exclude_target_column_number) - 1)
+    except Exception:
+        index = 0
+    if index < len(row.index):
+        column = str(row.index[index])
+        return [column], [row.iloc[index]]
+    return [], []
 
-
-def validate_row_exclude_target_column_number_for_columns(column_count, row_exclude_target_column_number=1):
-    column_number = _validate_target_column_number(row_exclude_target_column_number)
-    if column_number > column_count:
-        raise ValueError(
-            "除外判定に使う列番号がデータの列数を超えています。\n\n"
-            f"指定列番号: {column_number}\n"
-            f"データ列数: {column_count}\n\n"
-            "置換データの左端を1列目として指定してください。\n"
-            "プレビューの「No.」列は数えません。"
-        )
-    return True
-
-
-def should_exclude_row_by_mode(
-    row,
-    row_exclude_mode=DEFAULT_ROW_EXCLUDE_MODE,
-    row_exclude_target_column_number=DEFAULT_ROW_EXCLUDE_TARGET_COLUMN_NUMBER,
-):
+def should_exclude_row_by_mode(row, row_exclude_mode=DEFAULT_ROW_EXCLUDE_MODE,
+                               row_exclude_target_column_number=DEFAULT_ROW_EXCLUDE_TARGET_COLUMN_NUMBER,
+                               row_exclude_columns=None):
     values = list(row.values)
+    if row_exclude_mode == "none":
+        return False
     if not values:
         return True
     other_values = values[1:]
-
     if row_exclude_mode == "any_empty_except_first":
         return any(is_empty_cell_for_row_exclusion(v) for v in other_values)
-
     if row_exclude_mode == "any_empty":
         return any(is_empty_cell_for_row_exclusion(v) for v in values)
+    if row_exclude_mode == "all_empty_except_first":
+        return all(is_empty_cell_for_row_exclusion(v) for v in other_values)
+    columns, selected = _selected_values(row, row_exclude_columns, row_exclude_target_column_number)
+    if not columns:
+        return False
+    if row_exclude_mode == "selected_columns_all_empty":
+        return all(is_empty_cell_for_row_exclusion(v) for v in selected)
+    if row_exclude_mode in ("selected_columns_any_empty", "selected_column_number_empty"):
+        return any(is_empty_cell_for_row_exclusion(v) for v in selected)
+    return False
 
-    if row_exclude_mode == "selected_column_number_empty":
-        column_number = _validate_target_column_number(row_exclude_target_column_number)
-        index = column_number - 1
-        # 列数チェックは複製開始時に行う方針。
-        # データ読込・プレビュー時は、設定変更直後でもエラーにせず、除外しない。
-        if index >= len(values):
-            return False
-        return is_empty_cell_for_row_exclusion(values[index])
-
-    return all(is_empty_cell_for_row_exclusion(v) for v in other_values)
-
-
-def remove_example_and_empty_rows(
-    df,
-    row_exclude_mode=DEFAULT_ROW_EXCLUDE_MODE,
-    row_exclude_target_column_number=DEFAULT_ROW_EXCLUDE_TARGET_COLUMN_NUMBER,
-):
+def remove_example_and_empty_rows(df, row_exclude_mode=DEFAULT_ROW_EXCLUDE_MODE,
+                                  row_exclude_target_column_number=DEFAULT_ROW_EXCLUDE_TARGET_COLUMN_NUMBER,
+                                  row_exclude_columns=None, exclude_example_rows=DEFAULT_EXCLUDE_EXAMPLE_ROWS):
     if df.empty:
         return df
-    first_col = df.columns[0]
-    df = df[~df[first_col].astype(str).str.contains("例", na=False)]
-    df = df[
-        ~df.apply(
-            lambda row: should_exclude_row_by_mode(
-                row,
-                row_exclude_mode,
-                row_exclude_target_column_number,
-            ),
-            axis=1,
-        )
-    ]
-    return df.reset_index(drop=True)
-
+    result = df.copy()
+    if exclude_example_rows:
+        first_col = result.columns[0]
+        result = result[~result[first_col].astype(str).str.contains("例", na=False)]
+    result = result[~result.apply(lambda row: should_exclude_row_by_mode(
+        row, row_exclude_mode, row_exclude_target_column_number, row_exclude_columns), axis=1)]
+    return result.reset_index(drop=True)
 
 def prepare_csv_dataframe(file_path, format_amount_with_comma=False, amount_include_keywords=None,
                           amount_exclude_keywords=None, row_exclude_mode=DEFAULT_ROW_EXCLUDE_MODE,
-                          row_exclude_target_column_number=DEFAULT_ROW_EXCLUDE_TARGET_COLUMN_NUMBER):
+                          row_exclude_target_column_number=DEFAULT_ROW_EXCLUDE_TARGET_COLUMN_NUMBER, row_exclude_columns=None,
+                          exclude_example_rows=DEFAULT_EXCLUDE_EXAMPLE_ROWS):
     encodings = ["utf-8-sig", "utf-8", "cp932"]
     last_error = None
     for enc in encodings:
@@ -263,7 +239,8 @@ def prepare_csv_dataframe(file_path, format_amount_with_comma=False, amount_incl
                                include_keywords=amount_include_keywords,
                                exclude_keywords=amount_exclude_keywords)
     df = remove_example_and_empty_rows(df, row_exclude_mode=row_exclude_mode,
-                                       row_exclude_target_column_number=row_exclude_target_column_number)
+                                       row_exclude_target_column_number=row_exclude_target_column_number, row_exclude_columns=row_exclude_columns,
+                                       exclude_example_rows=exclude_example_rows)
     if df.empty:
         raise ValueError("置換データがありません。CSVの内容を確認してください。")
     return df
@@ -271,7 +248,8 @@ def prepare_csv_dataframe(file_path, format_amount_with_comma=False, amount_incl
 
 def prepare_excel_dataframe(file_path, format_amount_with_comma=False, amount_include_keywords=None,
                             amount_exclude_keywords=None, row_exclude_mode=DEFAULT_ROW_EXCLUDE_MODE,
-                            row_exclude_target_column_number=DEFAULT_ROW_EXCLUDE_TARGET_COLUMN_NUMBER):
+                            row_exclude_target_column_number=DEFAULT_ROW_EXCLUDE_TARGET_COLUMN_NUMBER, row_exclude_columns=None,
+                          exclude_example_rows=DEFAULT_EXCLUDE_EXAMPLE_ROWS):
     ext = os.path.splitext(file_path)[1].lower()
     if ext in [".xlsx", ".xlsm"]:
         engine = "openpyxl"
@@ -289,7 +267,8 @@ def prepare_excel_dataframe(file_path, format_amount_with_comma=False, amount_in
                                include_keywords=amount_include_keywords,
                                exclude_keywords=amount_exclude_keywords)
     df = remove_example_and_empty_rows(df, row_exclude_mode=row_exclude_mode,
-                                       row_exclude_target_column_number=row_exclude_target_column_number)
+                                       row_exclude_target_column_number=row_exclude_target_column_number, row_exclude_columns=row_exclude_columns,
+                                       exclude_example_rows=exclude_example_rows)
     if df.empty:
         raise ValueError("置換データがありません。Excelの内容を確認してください。")
     return df
@@ -297,7 +276,8 @@ def prepare_excel_dataframe(file_path, format_amount_with_comma=False, amount_in
 
 def prepare_dataframe(file_path, format_amount_with_comma=False, amount_include_keywords=None,
                       amount_exclude_keywords=None, row_exclude_mode=DEFAULT_ROW_EXCLUDE_MODE,
-                      row_exclude_target_column_number=DEFAULT_ROW_EXCLUDE_TARGET_COLUMN_NUMBER):
+                      row_exclude_target_column_number=DEFAULT_ROW_EXCLUDE_TARGET_COLUMN_NUMBER, row_exclude_columns=None,
+                          exclude_example_rows=DEFAULT_EXCLUDE_EXAMPLE_ROWS):
     if not file_path:
         raise ValueError("置換データファイルが指定されていません。")
     if not os.path.exists(file_path):
@@ -309,6 +289,8 @@ def prepare_dataframe(file_path, format_amount_with_comma=False, amount_include_
         "amount_exclude_keywords": amount_exclude_keywords,
         "row_exclude_mode": row_exclude_mode,
         "row_exclude_target_column_number": row_exclude_target_column_number,
+        "row_exclude_columns": row_exclude_columns,
+        "exclude_example_rows": exclude_example_rows,
     }
     if ext == ".csv":
         return prepare_csv_dataframe(file_path, **kwargs)
