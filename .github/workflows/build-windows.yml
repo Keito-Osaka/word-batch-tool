@@ -42,19 +42,19 @@ jobs:
 
           # Ver.1.3.0: create a temporary template containing row and common fields.
           $commonTemplate = Join-Path $env:RUNNER_TEMP "common-field-template.docx"
-          @'
-from docx import Document
-import os
-path = os.environ["COMMON_TEMPLATE_PATH"]
-doc = Document()
-doc.add_paragraph("通知日：<<通知日>>")
-doc.add_paragraph("学校名：{{学校名}}")
-table = doc.add_table(rows=1, cols=1)
-table.cell(0, 0).text = "回答期限：<<回答期限>>"
-doc.sections[0].header.paragraphs[0].text = "担当：<<担当者名>>"
-doc.save(path)
-'@ | Set-Content -Path (Join-Path $env:RUNNER_TEMP "create-common-template.py") -Encoding UTF8
           $env:COMMON_TEMPLATE_PATH = $commonTemplate
+          @'
+          from docx import Document
+          import os
+          path = os.environ["COMMON_TEMPLATE_PATH"]
+          doc = Document()
+          doc.add_paragraph("通知日：<<通知日>>")
+          doc.add_paragraph("学校名：{{学校名}}")
+          table = doc.add_table(rows=1, cols=1)
+          table.cell(0, 0).text = "回答期限：<<回答期限>>"
+          doc.sections[0].header.paragraphs[0].text = "担当：<<担当者名>>"
+          doc.save(path)
+          '@ | Set-Content -Path (Join-Path $env:RUNNER_TEMP "create-common-template.py") -Encoding UTF8
           python (Join-Path $env:RUNNER_TEMP "create-common-template.py")
 
           $commonTemplateRequest = @{ template_path = $commonTemplate } | ConvertTo-Json -Compress
@@ -157,25 +157,25 @@ doc.save(path)
           if (-not $generatedFile) { throw "Common-field output document was not created." }
           $env:GENERATED_COMMON_DOCX = $generatedFile.FullName
           @'
-from docx import Document
-import os
-path = os.environ["GENERATED_COMMON_DOCX"]
-doc = Document(path)
-texts = [p.text for p in doc.paragraphs]
-for table in doc.tables:
-    for row in table.rows:
-        for cell in row.cells:
-            texts.extend(p.text for p in cell.paragraphs)
-for section in doc.sections:
-    texts.extend(p.text for p in section.header.paragraphs)
-    texts.extend(p.text for p in section.footer.paragraphs)
-joined = "\n".join(texts)
-for expected in ("令和8年9月15日", "令和8年9月30日", "今井"):
-    if expected not in joined:
-        raise SystemExit(f"Missing common replacement: {expected}")
-if "<<" in joined or ">>" in joined:
-    raise SystemExit("An unreplaced common placeholder remains.")
-'@ | Set-Content -Path (Join-Path $env:RUNNER_TEMP "verify-common-output.py") -Encoding UTF8
+          from docx import Document
+          import os
+          path = os.environ["GENERATED_COMMON_DOCX"]
+          doc = Document(path)
+          texts = [p.text for p in doc.paragraphs]
+          for table in doc.tables:
+              for row in table.rows:
+                  for cell in row.cells:
+                      texts.extend(p.text for p in cell.paragraphs)
+          for section in doc.sections:
+              texts.extend(p.text for p in section.header.paragraphs)
+              texts.extend(p.text for p in section.footer.paragraphs)
+          joined = "\n".join(texts)
+          for expected in ("令和8年9月15日", "令和8年9月30日", "今井"):
+              if expected not in joined:
+                  raise SystemExit(f"Missing common replacement: {expected}")
+          if "<<" in joined or ">>" in joined:
+              raise SystemExit("An unreplaced common placeholder remains.")
+          '@ | Set-Content -Path (Join-Path $env:RUNNER_TEMP "verify-common-output.py") -Encoding UTF8
           python (Join-Path $env:RUNNER_TEMP "verify-common-output.py")
       - name: Set up Node.js
         uses: actions/setup-node@v6
