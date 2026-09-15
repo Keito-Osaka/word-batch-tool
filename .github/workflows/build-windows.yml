@@ -128,7 +128,7 @@ jobs:
       - name: Upload Windows installer
         uses: actions/upload-artifact@v7
         with:
-          name: WordBatchTool-Windows-v1.2.0
+          name: WordBatchTool-Windows-v1.2.1
           path: src-tauri/target/release/bundle/nsis/*.exe
           retention-days: 7
           if-no-files-found: error
