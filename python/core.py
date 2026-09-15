@@ -411,14 +411,21 @@ def replace_text_in_paragraph(paragraph, replacements):
     add_original_segments(cursor, len(original_text))
 
     existing_runs = list(paragraph.runs)
+    # Wordは日本語と英数字で別のフォント属性を参照するため、文字列を消去する前に
+    # 置換元runの優先フォントを保存する。特に「ＭＳ 明朝」のプレースホルダーへ
+    # 数字を入れた場合、ascii/hAnsiがテーマフォントのままだと游明朝へ変わることがある。
+    source_fonts = [get_run_preferred_font(run) for run in existing_runs]
     for run in existing_runs:
         run.text = ""
     for i, segment in enumerate(segments):
         target_run = existing_runs[i] if i < len(existing_runs) else paragraph.add_run()
-        source_run = existing_runs[segment["source_run_index"]]
+        source_index = segment["source_run_index"]
+        source_run = existing_runs[source_index]
         copy_run_format(source_run, target_run)
-        # copy_run_format()で置換元の書式を複製済みのため、数字を含む場合も
-        # フォント名を上書きせず、テンプレート側の指定をそのまま維持する。
+        if segment["is_replacement"]:
+            # eastAsiaだけでなくascii・hAnsi・csにも同じフォントを明示し、
+            # 数字、カンマ、英字を含む置換値でもテンプレートの書体を維持する。
+            set_run_font_all(target_run, source_fonts[source_index])
         target_run.text = segment["text"]
 
 
