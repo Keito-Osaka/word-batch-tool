@@ -63,3 +63,15 @@ export interface GenerationProgress {
 export interface DroppedPathClassification {
   template_path: string | null; data_path: string | null; output_path: string | null; unsupported_paths: string[];
 }
+
+export interface TemplateInspection {
+  success: boolean;
+  paragraph_count: number;
+  table_count: number;
+  section_count: number;
+  row_fields: string[];
+  common_fields: string[];
+  conflicting_fields: string[];
+  malformed_common_placeholders: string[];
+}
+export type CommonValues = Record<string, string>;

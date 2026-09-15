@@ -20,9 +20,9 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import type { DataPreview, DroppedPathClassification, GenerateResult, GenerationProgress, Settings } from "./types";
+import type { DataPreview, DroppedPathClassification, GenerateResult, GenerationProgress, Settings, TemplateInspection, CommonValues } from "./types";
 
-const APP_VERSION = "Ver.1.2.0";
+const APP_VERSION = "Ver.1.3.0";
 const DEFAULT_AMOUNT_INCLUDE_KEYWORDS = [
   "交付申請額",
   "交付決定額",
@@ -166,6 +166,7 @@ function HelpGuide({ onClose }: { onClose: () => void }) {
                   <p><strong>正しい書き方</strong><span><code>{`{{学校名}}`}</code></span></p>
                   <p><strong>避ける書き方</strong><span><code>{`{{ 学校名 }}`}</code></span></p>
                 </div>
+                <div className="help-note"><strong>全文書で共通する項目</strong><p>通知日や回答期限など、すべての文書で同じ値を使う部分は、半角の&lt;&lt;項目名&gt;&gt;で囲みます。例：&lt;&lt;通知日&gt;&gt;</p></div>
                 <div className="help-note"><strong>書式を維持するために</strong><p>プレースホルダー全体を同じ文字サイズ・フォント・装飾にしてください。同じ項目はWord内で複数回使用できます。</p></div>
               </div>
             )}
@@ -207,7 +208,8 @@ function HelpGuide({ onClose }: { onClose: () => void }) {
             {section === "history" && (
               <div className="help-section">
                 <h3>更新履歴</h3>
-                <article className="release-card"><div><strong>{APP_VERSION}</strong><span>設定とデータ除外の改善</span></div><ul><li>詳細設定を中央モーダルへ変更</li><li>記入例行の除外を選択可能に変更</li><li>除外なし、複数列のAND・OR条件を追加</li><li>除外理由と条件概要の表示を改善</li><li>数値のカンマ区切りとして名称と説明を整理</li></ul></article>
+                <article className="release-card"><div><strong>{APP_VERSION}</strong><span>共通項目の置換</span></div><ul><li>&lt;&lt;項目名&gt;&gt;による全文書共通の置換に対応</li><li>テンプレートから共通項目を自動検出</li><li>共通項目の入力・確認画面と未入力チェックを追加</li></ul></article>
+                <article className="release-card release-card-previous"><div><strong>Ver.1.2.0</strong><span>設定とデータ除外の改善</span></div><ul><li>詳細設定を中央モーダルへ変更</li><li>記入例行の除外を選択可能に変更</li><li>除外なし、複数列のAND・OR条件を追加</li><li>除外理由と条件概要の表示を改善</li><li>数値のカンマ区切りとして名称と説明を整理</li></ul></article>
                 <article className="release-card"><div><strong>Ver.1.1.0</strong><span>操作性・互換性の改善</span></div><ul><li>数字を含む置換値でもテンプレートのフォントを維持するよう修正</li><li>初回セットアップと文書処理をバックグラウンド化し、画面の応答性を改善</li><li>初回セットアップの所要時間案内を改善</li><li>準備中もテンプレート、置換データ、出力先を選択可能に変更</li><li>準備中に選択したファイルを、完了後に自動確認する機能を追加</li></ul></article>
                 <article className="release-card release-card-previous"><div><strong>Ver.1.0.0</strong><span>初回正式版</span></div><ul><li>Word・PDFの個別、結合、ZIP出力に対応</li><li>Excel・CSV、ドラッグ＆ドロップ、進捗表示に対応</li><li>ファイル名設定、データ確認、ライト・ダークテーマを実装</li><li>金額列の3桁区切りと対象キーワード編集に対応</li></ul></article>
                 <p className="help-footnote">更新履歴はVer.1.0.0以降を掲載します。</p>
@@ -285,6 +287,10 @@ export default function App() {
   const [templateWarmupState, setTemplateWarmupState] = useState<"idle" | "queued" | "running" | "ready" | "error">("idle");
   const [dataLoadState, setDataLoadState] = useState<"idle" | "queued" | "running" | "ready" | "error">("idle");
   const [amountKeywordInput, setAmountKeywordInput] = useState("");
+  const [templateInspection, setTemplateInspection] = useState<TemplateInspection | null>(null);
+  const [commonValues, setCommonValues] = useState<CommonValues>({});
+  const [commonDraft, setCommonDraft] = useState<CommonValues>({});
+  const [commonOpen, setCommonOpen] = useState(false);
   const [isFirstSetup] = useState(() => localStorage.getItem("wordBatchSetupCompleted") !== "1");
   const pendingTemplateRef = useRef<string | null>(null);
   const pendingDataRef = useRef<string | null>(null);
@@ -374,8 +380,11 @@ export default function App() {
     }));
   }, [preview?.columns.join("|")]);
 
+  const commonFields = templateInspection?.common_fields ?? [];
+  const missingCommonFields = commonFields.filter((name) => !commonValues[name]?.trim());
+  const commonCompletedCount = commonFields.length - missingCommonFields.length;
   const canRun = Boolean(
-    templatePath && dataPath && outputPath && preview?.included_count && !busy && warmupState === "ready" && templateWarmupState !== "running" && (!(settings.rowExcludeMode.startsWith("selected_columns")) || settings.rowExcludeColumns.length > 0) && (settings.addSerialNumber || settings.filenameKeys.length > 0),
+    templatePath && dataPath && outputPath && preview?.included_count && !busy && warmupState === "ready" && templateWarmupState !== "running" && missingCommonFields.length === 0 && (!(settings.rowExcludeMode.startsWith("selected_columns")) || settings.rowExcludeColumns.length > 0) && (settings.addSerialNumber || settings.filenameKeys.length > 0),
   );
   const hasWork = Boolean(templatePath || dataPath || outputPath || preview || result || error);
 
@@ -403,7 +412,10 @@ export default function App() {
   async function prepareTemplate(path: string) {
     setTemplateWarmupState("running");
     try {
-      await invoke("warmup_template", { templatePath: path });
+      const inspection = await invoke<TemplateInspection>("warmup_template", { templatePath: path });
+      setTemplateInspection(inspection);
+      setCommonValues({});
+      setCommonDraft({});
       setTemplateWarmupState("ready");
     } catch (reason) {
       setTemplateWarmupState("error");
@@ -492,6 +504,7 @@ export default function App() {
           data_path: dataPath,
           output_path: outputPath,
           filename_keys: settings.filenameKeys,
+          common_values: commonValues,
           add_serial_number: settings.addSerialNumber,
           serial_digits: settings.serialDigits,
           format_amount_with_comma: settings.formatAmountWithComma,
@@ -531,6 +544,10 @@ export default function App() {
     pendingTemplateRef.current = null;
     pendingDataRef.current = null;
     setTemplatePath("");
+    setTemplateInspection(null);
+    setCommonValues({});
+    setCommonDraft({});
+    setCommonOpen(false);
     setTemplateWarmupState("idle");
     setDataPath("");
     setDataLoadState("idle");
@@ -648,6 +665,12 @@ export default function App() {
           />
         </section>
 
+        {commonFields.length > 0 && (
+          <button className={`common-card ${missingCommonFields.length ? "incomplete" : "complete"}`} onClick={() => { setCommonDraft({ ...commonValues }); setCommonOpen(true); }} disabled={busy}>
+            <span className="common-card-symbol">&lt;&lt;&gt;&gt;</span><span><strong>共通項目を入力</strong><small>{missingCommonFields.length ? `${commonFields.length}項目のうち${missingCommonFields.length}項目が未入力です` : `${commonFields.length}項目すべて入力済みです`}</small></span><em>{commonCompletedCount}/{commonFields.length}</em><ChevronRight size={18}/>
+          </button>
+        )}
+        {templateInspection?.conflicting_fields?.length ? <section className="template-warning"><strong>同じ名前が行別項目と共通項目にあります</strong><p>{templateInspection.conflicting_fields.join("、")}。記号の指定が正しいか確認してください。</p></section> : null}
         {preview && (
           <button className="preview-link" onClick={() => { setPreviewTab("included"); setPreviewOpen(true); }}>
             <span>
@@ -753,6 +776,15 @@ export default function App() {
       </main>
 
       {helpOpen && <HelpGuide onClose={() => setHelpOpen(false)} />}
+      {commonOpen && (
+        <div className="overlay center-overlay" onMouseDown={() => setCommonOpen(false)}>
+          <section className="common-modal" role="dialog" aria-modal="true" aria-labelledby="common-title" onMouseDown={(event)=>event.stopPropagation()}>
+            <div className="drawer-head"><div><h2 id="common-title">共通項目の入力</h2><p>&lt;&lt;項目名&gt;&gt;へ、すべての文書で共通する文字を挿入します。</p></div><button className="icon-button" onClick={()=>setCommonOpen(false)}><X size={18}/></button></div>
+            <div className="common-form">{commonFields.map(name=><label key={name}><span>{name}</span><input autoFocus={name===commonFields[0]} value={commonDraft[name] ?? ""} placeholder={`${name}を入力`} onChange={(e)=>setCommonDraft(current=>({...current,[name]:e.target.value}))}/></label>)}</div>
+            <div className="common-actions"><button onClick={()=>setCommonOpen(false)}>キャンセル</button><button className="primary" disabled={commonFields.some(name=>!commonDraft[name]?.trim())} onClick={()=>{setCommonValues({...commonDraft});setCommonOpen(false);setResult(null);}}>適用</button></div>
+          </section>
+        </div>
+      )}
       {settingsOpen && (
         <div className="overlay center-overlay" onMouseDown={() => setSettingsOpen(false)}>
           <section className="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-title" onMouseDown={(event) => event.stopPropagation()}>
@@ -800,7 +832,7 @@ export default function App() {
               <button className={previewTab === "included" ? "active" : ""} onClick={() => setPreviewTab("included")}>使用するデータ <span>{preview.included_count}</span></button>
               <button className={previewTab === "excluded" ? "active" : ""} onClick={() => setPreviewTab("excluded")}>除外されたデータ <span>{preview.excluded_count}</span></button>
             </div>
-            <div className="exclusion-summary"><strong>現在の除外条件</strong><span>{preview.exclusion_summary || "設定なし"}</span></div><div className="table-help">表の下部にあるスクロールバーで、右側の列まで確認できます。</div>
+            {commonFields.length > 0 && <div className="common-preview"><strong>共通項目</strong>{commonFields.map(name=><span key={name}><b>{name}</b><em>{commonValues[name] || "未入力"}</em></span>)}</div>}<div className="exclusion-summary"><strong>現在の除外条件</strong><span>{preview.exclusion_summary || "設定なし"}</span></div><div className="table-help">表の下部にあるスクロールバーで、右側の列まで確認できます。</div>
             <div className="table-scroll" tabIndex={0}>
               <table>
                 <thead>
