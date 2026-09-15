@@ -39,9 +39,41 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Template warmup failed." }
           $templateResult = $templateWarmup | ConvertFrom-Json
           if (-not $templateResult.success) { throw "Template warmup returned an invalid response." }
+
+          # Ver.1.3.0: create a temporary template containing row and common fields.
+          $commonTemplate = Join-Path $env:RUNNER_TEMP "common-field-template.docx"
+          @'
+from docx import Document
+import os
+path = os.environ["COMMON_TEMPLATE_PATH"]
+doc = Document()
+doc.add_paragraph("通知日：<<通知日>>")
+doc.add_paragraph("学校名：{{学校名}}")
+table = doc.add_table(rows=1, cols=1)
+table.cell(0, 0).text = "回答期限：<<回答期限>>"
+doc.sections[0].header.paragraphs[0].text = "担当：<<担当者名>>"
+doc.save(path)
+'@ | Set-Content -Path (Join-Path $env:RUNNER_TEMP "create-common-template.py") -Encoding UTF8
+          $env:COMMON_TEMPLATE_PATH = $commonTemplate
+          python (Join-Path $env:RUNNER_TEMP "create-common-template.py")
+
+          $commonTemplateRequest = @{ template_path = $commonTemplate } | ConvertTo-Json -Compress
+          $commonTemplateOutput = $commonTemplateRequest | & "src-tauri/resources/backend/word-batch-backend.exe" warmup-template
+          if ($LASTEXITCODE -ne 0) { throw "Common-field template inspection failed." }
+          $commonTemplateResult = $commonTemplateOutput | ConvertFrom-Json
+          if (($commonTemplateResult.common_fields -join ",") -ne "回答期限,担当者名,通知日") {
+            throw "Unexpected common fields: $($commonTemplateResult.common_fields -join ',')"
+          }
+          if (($commonTemplateResult.row_fields -join ",") -ne "学校名") {
+            throw "Unexpected row fields: $($commonTemplateResult.row_fields -join ',')"
+          }
+          if ($commonTemplateResult.conflicting_fields.Count -ne 0) {
+            throw "Unexpected row/common field conflict."
+          }
+
           $dataPath = (Resolve-Path "test-data/テスト用置換データ.xlsx").Path
 
-          # Ver.1.2.0: no blank-row exclusion, while example rows remain excluded.
+          # Ver.1.3.0: retain Ver.1.2.0 row-exclusion coverage.
           $noneRequest = @{
             data_path = $dataPath
             format_amount_with_comma = $true
@@ -96,6 +128,55 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Example-row toggle smoke test failed." }
           $exampleResult = $exampleOutput | ConvertFrom-Json
           if ($exampleResult.included_count -lt $noneResult.included_count) { throw "Example-row toggle behaved unexpectedly." }
+
+          # Verify that common values and row values are replaced together.
+          $commonOutputDir = Join-Path $env:RUNNER_TEMP "common-field-output"
+          New-Item -ItemType Directory -Force $commonOutputDir | Out-Null
+          $generateRequest = @{
+            template_path = $commonTemplate
+            data_path = $dataPath
+            output_path = $commonOutputDir
+            filename_keys = @()
+            add_serial_number = $true
+            serial_digits = 2
+            format_amount_with_comma = $true
+            exclude_example_rows = $true
+            row_exclude_mode = "selected_columns_any_empty"
+            row_exclude_columns = @($targetColumn)
+            output_format = "word"
+            output_method = "folder"
+            common_values = @{
+              "通知日" = "令和8年9月15日"
+              "回答期限" = "令和8年9月30日"
+              "担当者名" = "今井"
+            }
+          } | ConvertTo-Json -Depth 5 -Compress
+          $generateLines = $generateRequest | & "src-tauri/resources/backend/word-batch-backend.exe" generate
+          if ($LASTEXITCODE -ne 0) { throw "Common-field generation failed." }
+          $generatedFile = Get-ChildItem $commonOutputDir -Filter *.docx | Select-Object -First 1
+          if (-not $generatedFile) { throw "Common-field output document was not created." }
+          $env:GENERATED_COMMON_DOCX = $generatedFile.FullName
+          @'
+from docx import Document
+import os
+path = os.environ["GENERATED_COMMON_DOCX"]
+doc = Document(path)
+texts = [p.text for p in doc.paragraphs]
+for table in doc.tables:
+    for row in table.rows:
+        for cell in row.cells:
+            texts.extend(p.text for p in cell.paragraphs)
+for section in doc.sections:
+    texts.extend(p.text for p in section.header.paragraphs)
+    texts.extend(p.text for p in section.footer.paragraphs)
+joined = "\n".join(texts)
+for expected in ("令和8年9月15日", "令和8年9月30日", "今井"):
+    if expected not in joined:
+        raise SystemExit(f"Missing common replacement: {expected}")
+if "<<" in joined or ">>" in joined:
+    raise SystemExit("An unreplaced common placeholder remains.")
+'@ | Set-Content -Path (Join-Path $env:RUNNER_TEMP "verify-common-output.py") -Encoding UTF8
+          python (Join-Path $env:RUNNER_TEMP "verify-common-output.py")
       - name: Set up Node.js
         uses: actions/setup-node@v6
         with:
@@ -128,7 +209,7 @@ jobs:
       - name: Upload Windows installer
         uses: actions/upload-artifact@v7
         with:
-          name: WordBatchTool-Windows-v1.2.0
+          name: WordBatchTool-Windows-v1.3.0
           path: src-tauri/target/release/bundle/nsis/*.exe
           retention-days: 7
           if-no-files-found: error
