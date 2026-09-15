@@ -352,15 +352,20 @@ def replace_text_in_paragraph(paragraph, replacements):
         char_to_run_index.extend([run_index] * len(run.text))
 
     matches = []
-    for key, value in replacements.items():
-        placeholder = f"{{{{{key}}}}}"
-        start = 0
-        while True:
-            pos = original_text.find(placeholder, start)
-            if pos == -1:
-                break
-            matches.append({"start": pos, "end": pos + len(placeholder), "value": "" if value is None else str(value)})
-            start = pos + len(placeholder)
+    replacement_groups = [("{{", "}}", replacements)]
+    common_replacements = getattr(paragraph, "_word_batch_common_replacements", None)
+    if common_replacements:
+        replacement_groups.append(("<<", ">>", common_replacements))
+    for opener, closer, values in replacement_groups:
+        for key, value in values.items():
+            placeholder = f"{opener}{key}{closer}"
+            start = 0
+            while True:
+                pos = original_text.find(placeholder, start)
+                if pos == -1:
+                    break
+                matches.append({"start": pos, "end": pos + len(placeholder), "value": "" if value is None else str(value), "opener": opener, "closer": closer})
+                start = pos + len(placeholder)
     if not matches:
         return
 
@@ -394,7 +399,7 @@ def replace_text_in_paragraph(paragraph, replacements):
         candidates = []
         for i in range(start, min(end, len(char_to_run_index))):
             run_index = char_to_run_index[i]
-            if original_text[i] not in "{}":
+            if original_text[i] not in "{}<>":
                 return run_index
             candidates.append(run_index)
         return candidates[0] if candidates else 0
@@ -417,26 +422,50 @@ def replace_text_in_paragraph(paragraph, replacements):
         target_run.text = segment["text"]
 
 
-def replace_text_in_table(table, replacements):
+def replace_text_in_table(table, replacements, common_replacements=None):
     for row in table.rows:
         for cell in row.cells:
-            replace_text_in_document_part(cell, replacements)
-
-
-def replace_text_in_document_part(part, replacements):
+            replace_text_in_document_part(cell, replacements, common_replacements)
+def replace_text_in_document_part(part, replacements, common_replacements=None):
     for paragraph in part.paragraphs:
+        paragraph._word_batch_common_replacements = common_replacements or {}
         replace_text_in_paragraph(paragraph, replacements)
     for table in part.tables:
-        replace_text_in_table(table, replacements)
-
-
-def replace_placeholders(doc, replacements):
-    replace_text_in_document_part(doc, replacements)
+        replace_text_in_table(table, replacements, common_replacements)
+def replace_placeholders(doc, replacements, common_replacements=None):
+    replace_text_in_document_part(doc, replacements, common_replacements)
     for section in doc.sections:
-        replace_text_in_document_part(section.header, replacements)
-        replace_text_in_document_part(section.footer, replacements)
+        replace_text_in_document_part(section.header, replacements, common_replacements)
+        replace_text_in_document_part(section.footer, replacements, common_replacements)
 
+def iter_document_text(doc):
+    def walk(part):
+        for paragraph in part.paragraphs:
+            yield "".join(run.text for run in paragraph.runs)
+        for table in part.tables:
+            for row in table.rows:
+                for cell in row.cells:
+                    yield from walk(cell)
+    yield from walk(doc)
+    for section in doc.sections:
+        yield from walk(section.header)
+        yield from walk(section.footer)
 
+def inspect_template_placeholders(template_path):
+    doc = Document(template_path)
+    text = "\n".join(iter_document_text(doc))
+    row_fields = sorted(set(re.findall(r"\{\{([^{}\r\n]+)\}\}", text)))
+    common_fields = sorted(set(re.findall(r"<<([^<>\r\n]+)>>", text)))
+    malformed = []
+    for line in text.splitlines():
+        if ("<<" in line or ">>" in line) and not re.search(r"<<[^<>\r\n]+>>", line):
+            malformed.append(line.strip()[:120])
+    return {
+        "row_fields": row_fields,
+        "common_fields": common_fields,
+        "conflicting_fields": sorted(set(row_fields) & set(common_fields)),
+        "malformed_common_placeholders": sorted(set(x for x in malformed if x)),
+    }
 # =====================================================
 # ファイル名生成
 # =====================================================
@@ -571,7 +600,7 @@ def build_pdf_output_paths(template_path, df, filename_keys, output_dir_path, ad
 
 
 def generate_documents_from_template(template_path, df, filename_keys, output_dir_path,
-                                     add_serial_number=False, serial_digits=3, progress_callback=None):
+                                     add_serial_number=False, serial_digits=3, common_replacements=None, progress_callback=None):
     if not os.path.exists(template_path):
         raise FileNotFoundError(f"テンプレートWordが見つかりません: {template_path}")
     if df is None or df.empty:
@@ -581,7 +610,7 @@ def generate_documents_from_template(template_path, df, filename_keys, output_di
     for i, (_, row) in enumerate(df.iterrows(), start=1):
         row_dict = row_to_replacements(row)
         doc = Document(template_path)
-        replace_placeholders(doc, row_dict)
+        replace_placeholders(doc, row_dict, common_replacements)
         filename = build_output_filename(template_path, row_dict, filename_keys, i, add_serial_number, serial_digits, extension=".docx")
         output_path = ensure_unique_path(os.path.join(output_dir_path, filename))
         doc.save(output_path)
@@ -590,7 +619,7 @@ def generate_documents_from_template(template_path, df, filename_keys, output_di
 
 
 def generate_pdf_documents_from_template(template_path, df, filename_keys, output_dir_path,
-                                         add_serial_number=False, serial_digits=3, progress_callback=None):
+                                         add_serial_number=False, serial_digits=3, common_replacements=None, progress_callback=None):
     if not os.path.exists(template_path):
         raise FileNotFoundError(f"テンプレートWordが見つかりません: {template_path}")
     if df is None or df.empty:
@@ -601,7 +630,7 @@ def generate_pdf_documents_from_template(template_path, df, filename_keys, outpu
         for i, (_, row) in enumerate(df.iterrows(), start=1):
             row_dict = row_to_replacements(row)
             doc = Document(template_path)
-            replace_placeholders(doc, row_dict)
+            replace_placeholders(doc, row_dict, common_replacements)
             docx_filename = build_output_filename(template_path, row_dict, filename_keys, i, add_serial_number, serial_digits, extension=".docx")
             pdf_filename = os.path.splitext(docx_filename)[0] + ".pdf"
             temp_docx_path = os.path.join(tmp_dir, docx_filename)
@@ -632,7 +661,7 @@ def append_document_body(target_doc, source_doc):
 
 
 def generate_merged_document_from_template(template_path, df, output_docx_path,
-                                           add_serial_number=False, serial_digits=3, progress_callback=None):
+                                           add_serial_number=False, serial_digits=3, common_replacements=None, progress_callback=None):
     if not os.path.exists(template_path):
         raise FileNotFoundError(f"テンプレートWordが見つかりません: {template_path}")
     if df is None or df.empty:
@@ -645,7 +674,7 @@ def generate_merged_document_from_template(template_path, df, output_docx_path,
     for i, (_, row) in enumerate(df.iterrows(), start=1):
         row_dict = row_to_replacements(row)
         doc = Document(template_path)
-        replace_placeholders(doc, row_dict)
+        replace_placeholders(doc, row_dict, common_replacements)
         if merged_doc is None:
             merged_doc = doc
         else:
@@ -657,7 +686,7 @@ def generate_merged_document_from_template(template_path, df, output_docx_path,
 
 
 def generate_merged_pdf_document_from_template(template_path, df, output_pdf_path,
-                                               add_serial_number=False, serial_digits=3, progress_callback=None):
+                                               add_serial_number=False, serial_digits=3, common_replacements=None, progress_callback=None):
     if df is None or df.empty:
         raise ValueError("置換データがありません。")
     output_dir = os.path.dirname(output_pdf_path)
@@ -666,13 +695,13 @@ def generate_merged_pdf_document_from_template(template_path, df, output_pdf_pat
     with tempfile.TemporaryDirectory() as tmp_dir:
         temp_docx_path = os.path.join(tmp_dir, "merged_temp.docx")
         generate_merged_document_from_template(template_path, df, temp_docx_path,
-                                               add_serial_number, serial_digits, progress_callback)
+                                               add_serial_number, serial_digits, common_replacements=common_replacements, progress_callback=progress_callback)
         convert_docx_to_pdf_with_word(temp_docx_path, output_pdf_path)
 
 
 def generate_pdf_documents_fast_or_fallback(template_path, df, filename_keys, output_dir_path,
                                             add_serial_number=False, serial_digits=3,
-                                            progress_callback=None, fallback_callback=None):
+                                            common_replacements=None, progress_callback=None, fallback_callback=None):
     if df is None or df.empty:
         raise ValueError("置換データがありません。")
     os.makedirs(output_dir_path, exist_ok=True)
@@ -683,7 +712,7 @@ def generate_pdf_documents_fast_or_fallback(template_path, df, filename_keys, ou
             merged_docx_path = os.path.join(tmp_dir, "merged_temp.docx")
             merged_pdf_path = os.path.join(tmp_dir, "merged_temp.pdf")
             generate_merged_document_from_template(template_path, df, merged_docx_path,
-                                                   add_serial_number, serial_digits, progress_callback)
+                                                   add_serial_number, serial_digits, common_replacements=common_replacements, progress_callback=progress_callback)
             convert_docx_to_pdf_with_word(merged_docx_path, merged_pdf_path)
             ok, total_pages, record_count, pages_per_record = split_pdf_evenly_by_record_count(merged_pdf_path, output_pdf_paths)
             if ok:
@@ -700,19 +729,19 @@ def generate_pdf_documents_fast_or_fallback(template_path, df, filename_keys, ou
             fallback_callback(None, len(df))
 
     generate_pdf_documents_from_template(template_path, df, filename_keys, output_dir_path,
-                                         add_serial_number, serial_digits, progress_callback)
+                                         add_serial_number, serial_digits, common_replacements=common_replacements, progress_callback=progress_callback)
     return {"mode": "fallback", "record_count": len(df)}
 
 
 def generate_zip_from_template(template_path, df, filename_keys, output_zip_path,
-                               add_serial_number=False, serial_digits=3, progress_callback=None):
+                               add_serial_number=False, serial_digits=3, common_replacements=None, progress_callback=None):
     if df is None or df.empty:
         raise ValueError("置換データがありません。")
     output_dir = os.path.dirname(output_zip_path)
     os.makedirs(output_dir, exist_ok=True)
     with tempfile.TemporaryDirectory() as tmp_dir:
         generate_documents_from_template(template_path, df, filename_keys, tmp_dir,
-                                         add_serial_number, serial_digits, progress_callback)
+                                         add_serial_number, serial_digits, common_replacements=common_replacements, progress_callback=progress_callback)
         with zipfile.ZipFile(output_zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
             for filename in os.listdir(tmp_dir):
                 file_path = os.path.join(tmp_dir, filename)
@@ -721,14 +750,14 @@ def generate_zip_from_template(template_path, df, filename_keys, output_zip_path
 
 
 def generate_pdf_zip_from_template(template_path, df, filename_keys, output_zip_path,
-                                   add_serial_number=False, serial_digits=3, progress_callback=None):
+                                   add_serial_number=False, serial_digits=3, common_replacements=None, progress_callback=None):
     if df is None or df.empty:
         raise ValueError("置換データがありません。")
     output_dir = os.path.dirname(output_zip_path)
     os.makedirs(output_dir, exist_ok=True)
     with tempfile.TemporaryDirectory() as tmp_dir:
         generate_pdf_documents_from_template(template_path, df, filename_keys, tmp_dir,
-                                             add_serial_number, serial_digits, progress_callback)
+                                             add_serial_number, serial_digits, common_replacements=common_replacements, progress_callback=progress_callback)
         with zipfile.ZipFile(output_zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
             for filename in os.listdir(tmp_dir):
                 file_path = os.path.join(tmp_dir, filename)
@@ -738,15 +767,15 @@ def generate_pdf_zip_from_template(template_path, df, filename_keys, output_zip_
 
 def generate_pdf_zip_fast_or_fallback(template_path, df, filename_keys, output_zip_path,
                                       add_serial_number=False, serial_digits=3,
-                                      progress_callback=None, fallback_callback=None):
+                                      common_replacements=None, progress_callback=None, fallback_callback=None):
     if df is None or df.empty:
         raise ValueError("置換データがありません。")
     output_dir = os.path.dirname(output_zip_path)
     os.makedirs(output_dir, exist_ok=True)
     with tempfile.TemporaryDirectory() as tmp_dir:
         generate_pdf_documents_fast_or_fallback(template_path, df, filename_keys, tmp_dir,
-                                                add_serial_number, serial_digits,
-                                                progress_callback, fallback_callback)
+                                                add_serial_number, serial_digits, common_replacements=common_replacements,
+                                                progress_callback=progress_callback, fallback_callback=fallback_callback)
         with zipfile.ZipFile(output_zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
             for filename in os.listdir(tmp_dir):
                 file_path = os.path.join(tmp_dir, filename)

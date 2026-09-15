@@ -91,7 +91,8 @@ def warmup_template(req):
     section_count=len(document.sections)
     for section in document.sections:
         _=len(section.header.paragraphs)+len(section.footer.paragraphs)
-    return {"success":True,"paragraph_count":paragraph_count,"table_count":table_count,"section_count":section_count}
+    fields=core.inspect_template_placeholders(path)
+    return {"success":True,"paragraph_count":paragraph_count,"table_count":table_count,"section_count":section_count,**fields}
 
 def zip_files(folder,zip_path,total):
     files=[f for f in os.listdir(folder) if os.path.isfile(os.path.join(folder,f))]
@@ -103,6 +104,10 @@ def generate(req):
     if not output: raise ValueError("出力先が指定されていません。")
     os.makedirs(output,exist_ok=True); emit_progress("prepare","置換データを準備しています",0,0,2)
     df=core.prepare_dataframe(data,format_amount_with_comma=req.get("format_amount_with_comma",True),amount_include_keywords=req.get("amount_include_keywords"),amount_exclude_keywords=req.get("amount_exclude_keywords"),row_exclude_mode=req.get("row_exclude_mode",core.DEFAULT_ROW_EXCLUDE_MODE),row_exclude_target_column_number=req.get("row_exclude_target_column_number",core.DEFAULT_ROW_EXCLUDE_TARGET_COLUMN_NUMBER),row_exclude_columns=req.get("row_exclude_columns",[]),exclude_example_rows=req.get("exclude_example_rows",True))
+    common_values={str(k):"" if v is None else str(v) for k,v in req.get("common_values",{}).items()}
+    template_fields=core.inspect_template_placeholders(template)
+    missing=[name for name in template_fields["common_fields"] if not common_values.get(name,"").strip()]
+    if missing: raise ValueError("共通項目に未入力があります。\n\n"+"\n".join(f"・{name}" for name in missing))
     count=len(df); emit_progress("prepare","置換データの準備が完了しました",count,count,8,state="done")
     keys=req.get("filename_keys",[]); serial=req.get("add_serial_number",True); digits=req.get("serial_digits",2)
     if not serial and not keys:
@@ -111,25 +116,25 @@ def generate(req):
     def callback_for(stage,label,start,end):
         def cb(current,total): emit_progress(stage,label,current,total,start+int((end-start)*current/max(total,1)))
         return cb
-    if fmt=="word" and method=="folder": core.generate_documents_from_template(template,df,keys,output,serial,digits,callback_for("word","個別Wordを作成しています",8,98))
-    elif fmt=="word" and method=="merged": actual=aggregate_path(template,output,count,"docx"); core.generate_merged_document_from_template(template,df,actual,serial,digits,callback_for("word","結合Wordを作成しています",8,96)); emit_progress("save","結合Wordを保存しています",count,count,98)
+    if fmt=="word" and method=="folder": core.generate_documents_from_template(template,df,keys,output,serial,digits,common_replacements=common_values,progress_callback=callback_for("word","個別Wordを作成しています",8,98))
+    elif fmt=="word" and method=="merged": actual=aggregate_path(template,output,count,"docx"); core.generate_merged_document_from_template(template,df,actual,serial,digits,common_replacements=common_values,progress_callback=callback_for("word","結合Wordを作成しています",8,96)); emit_progress("save","結合Wordを保存しています",count,count,98)
     elif fmt=="word" and method=="zip":
         actual=aggregate_path(template,output,count,"zip")
-        with tempfile.TemporaryDirectory() as tmp: core.generate_documents_from_template(template,df,keys,tmp,serial,digits,callback_for("word","ZIP用Wordを作成しています",8,90)); zip_files(tmp,actual,count)
+        with tempfile.TemporaryDirectory() as tmp: core.generate_documents_from_template(template,df,keys,tmp,serial,digits,common_replacements=common_values,progress_callback=callback_for("word","ZIP用Wordを作成しています",8,90)); zip_files(tmp,actual,count)
     elif fmt=="pdf" and method=="folder":
         if fast:
             emit_progress("word","PDF変換用の結合Wordを作成しています",0,count,10)
             def fallback(pages,records): emit_progress("fallback","高速分割できないため通常方式へ切り替えます",0,records,None,state="notice")
-            core.generate_pdf_documents_fast_or_fallback(template,df,keys,output,serial,digits,callback_for("word","PDF変換用の文書を作成しています",10,55),fallback)
-        else: core.generate_pdf_documents_from_template(template,df,keys,output,serial,digits,callback_for("pdf","個別PDFを作成しています",8,98))
-    elif fmt=="pdf" and method=="merged": actual=aggregate_path(template,output,count,"pdf"); core.generate_merged_pdf_document_from_template(template,df,actual,serial,digits,callback_for("word","PDF変換用の結合Wordを作成しています",8,60)); emit_progress("pdf","Microsoft WordでPDFへ変換しています",count,count,92)
+            core.generate_pdf_documents_fast_or_fallback(template,df,keys,output,serial,digits,common_replacements=common_values,progress_callback=callback_for("word","PDF変換用の文書を作成しています",10,55),fallback_callback=fallback)
+        else: core.generate_pdf_documents_from_template(template,df,keys,output,serial,digits,common_replacements=common_values,progress_callback=callback_for("pdf","個別PDFを作成しています",8,98))
+    elif fmt=="pdf" and method=="merged": actual=aggregate_path(template,output,count,"pdf"); core.generate_merged_pdf_document_from_template(template,df,actual,serial,digits,common_replacements=common_values,progress_callback=callback_for("word","PDF変換用の結合Wordを作成しています",8,60)); emit_progress("pdf","Microsoft WordでPDFへ変換しています",count,count,92)
     elif fmt=="pdf" and method=="zip":
         actual=aggregate_path(template,output,count,"zip")
         with tempfile.TemporaryDirectory() as tmp:
             if fast:
                 def fallback(pages,records): emit_progress("fallback","高速分割できないため通常方式へ切り替えます",0,records,None,state="notice")
-                core.generate_pdf_documents_fast_or_fallback(template,df,keys,tmp,serial,digits,callback_for("word","ZIP用PDFを準備しています",8,82),fallback)
-            else: core.generate_pdf_documents_from_template(template,df,keys,tmp,serial,digits,callback_for("pdf","ZIP用PDFを作成しています",8,88))
+                core.generate_pdf_documents_fast_or_fallback(template,df,keys,tmp,serial,digits,common_replacements=common_values,progress_callback=callback_for("word","ZIP用PDFを準備しています",8,82),fallback_callback=fallback)
+            else: core.generate_pdf_documents_from_template(template,df,keys,tmp,serial,digits,common_replacements=common_values,progress_callback=callback_for("pdf","ZIP用PDFを作成しています",8,88))
             zip_files(tmp,actual,count)
     else: raise ValueError("出力形式または出力方法が正しくありません。")
     emit_progress("complete","処理が完了しました",count,count,100,state="done")
