@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import type { DataPreview, DroppedPathClassification, GenerateResult, GenerationProgress, Settings, TemplateInspection, CommonValues } from "./types";
 
-const APP_VERSION = "Ver.1.3.0";
+const APP_VERSION = "Ver.1.3.1";
 const DEFAULT_AMOUNT_INCLUDE_KEYWORDS = [
   "交付申請額",
   "交付決定額",
@@ -208,7 +208,8 @@ function HelpGuide({ onClose }: { onClose: () => void }) {
             {section === "history" && (
               <div className="help-section">
                 <h3>更新履歴</h3>
-                <article className="release-card"><div><strong>{APP_VERSION}</strong><span>共通項目の置換</span></div><ul><li>&lt;&lt;項目名&gt;&gt;による全文書共通の置換に対応</li><li>テンプレートから共通項目を自動検出</li><li>共通項目の入力・確認画面と未入力チェックを追加</li></ul></article>
+                <article className="release-card"><div><strong>{APP_VERSION}</strong><span>数値置換時のフォント修正</span></div><ul><li>{{項目名}}と&lt;&lt;項目名&gt;&gt;へ数値を差し込んだ際も、テンプレートのフォントを維持するよう修正</li><li>カンマ区切りの有無にかかわらず、英数字用フォント属性を明示的に維持</li></ul></article>
+                <article className="release-card release-card-previous"><div><strong>Ver.1.3.0</strong><span>共通項目の置換</span></div><ul><li>&lt;&lt;項目名&gt;&gt;による全文書共通の置換に対応</li><li>テンプレートから共通項目を自動検出</li><li>共通項目の入力・確認画面と未入力チェックを追加</li></ul></article>
                 <article className="release-card release-card-previous"><div><strong>Ver.1.2.0</strong><span>設定とデータ除外の改善</span></div><ul><li>詳細設定を中央モーダルへ変更</li><li>記入例行の除外を選択可能に変更</li><li>除外なし、複数列のAND・OR条件を追加</li><li>除外理由と条件概要の表示を改善</li><li>数値のカンマ区切りとして名称と説明を整理</li></ul></article>
                 <article className="release-card"><div><strong>Ver.1.1.0</strong><span>操作性・互換性の改善</span></div><ul><li>数字を含む置換値でもテンプレートのフォントを維持するよう修正</li><li>初回セットアップと文書処理をバックグラウンド化し、画面の応答性を改善</li><li>初回セットアップの所要時間案内を改善</li><li>準備中もテンプレート、置換データ、出力先を選択可能に変更</li><li>準備中に選択したファイルを、完了後に自動確認する機能を追加</li></ul></article>
                 <article className="release-card release-card-previous"><div><strong>Ver.1.0.0</strong><span>初回正式版</span></div><ul><li>Word・PDFの個別、結合、ZIP出力に対応</li><li>Excel・CSV、ドラッグ＆ドロップ、進捗表示に対応</li><li>ファイル名設定、データ確認、ライト・ダークテーマを実装</li><li>金額列の3桁区切りと対象キーワード編集に対応</li></ul></article>
