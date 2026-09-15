@@ -49,6 +49,10 @@ jobs:
           path = os.environ["COMMON_TEMPLATE_PATH"]
           doc = Document()
           doc.add_paragraph("通知日：<<通知日>>")
+          numeric = doc.add_paragraph()
+          numeric_run = numeric.add_run("金額：<<共通金額>>")
+          numeric_run.font.name = "ＭＳ 明朝"
+          numeric_run._element.get_or_add_rPr().rFonts.set(__import__("docx").oxml.ns.qn("w:eastAsia"), "ＭＳ 明朝")
           doc.add_paragraph("学校名：{{学校名}}")
           table = doc.add_table(rows=1, cols=1)
           table.cell(0, 0).text = "回答期限：<<回答期限>>"
@@ -149,6 +153,7 @@ jobs:
               "通知日" = "令和8年9月15日"
               "回答期限" = "令和8年9月30日"
               "担当者名" = "今井"
+              "共通金額" = "100,000"
             }
           } | ConvertTo-Json -Depth 5 -Compress
           $generateLines = $generateRequest | & "src-tauri/resources/backend/word-batch-backend.exe" generate
@@ -170,7 +175,7 @@ jobs:
               texts.extend(p.text for p in section.header.paragraphs)
               texts.extend(p.text for p in section.footer.paragraphs)
           joined = "\n".join(texts)
-          for expected in ("令和8年9月15日", "令和8年9月30日", "今井"):
+          for expected in ("令和8年9月15日", "令和8年9月30日", "今井", "100,000"):
               if expected not in joined:
                   raise SystemExit(f"Missing common replacement: {expected}")
           if "<<" in joined or ">>" in joined:
@@ -209,7 +214,7 @@ jobs:
       - name: Upload Windows installer
         uses: actions/upload-artifact@v7
         with:
-          name: WordBatchTool-Windows-v1.3.0
+          name: WordBatchTool-Windows-v1.3.1
           path: src-tauri/target/release/bundle/nsis/*.exe
           retention-days: 7
           if-no-files-found: error
