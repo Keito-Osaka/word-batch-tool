@@ -39,11 +39,63 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Template warmup failed." }
           $templateResult = $templateWarmup | ConvertFrom-Json
           if (-not $templateResult.success) { throw "Template warmup returned an invalid response." }
-          $request = @{ data_path = (Resolve-Path "test-data/テスト用置換データ.xlsx").Path; format_amount_with_comma = $true; row_exclude_mode = "selected_column_number_empty"; row_exclude_target_column_number = 2 } | ConvertTo-Json -Compress
-          $output = $request | & "src-tauri/resources/backend/word-batch-backend.exe" inspect
-          if ($LASTEXITCODE -ne 0) { throw "Python backend smoke test failed." }
-          $result = $output | ConvertFrom-Json
-          if ($result.included_count -ne 10) { throw "Unexpected included_count: $($result.included_count)" }
+          $dataPath = (Resolve-Path "test-data/テスト用置換データ.xlsx").Path
+
+          # Ver.1.2.0: no blank-row exclusion, while example rows remain excluded.
+          $noneRequest = @{
+            data_path = $dataPath
+            format_amount_with_comma = $true
+            amount_include_keywords = @("交付申請額", "交付決定額", "申請額", "金額", "費用", "参加費用", "支援金")
+            exclude_example_rows = $true
+            row_exclude_mode = "none"
+            row_exclude_columns = @()
+          } | ConvertTo-Json -Compress
+          $noneOutput = $noneRequest | & "src-tauri/resources/backend/word-batch-backend.exe" inspect
+          if ($LASTEXITCODE -ne 0) { throw "No-exclusion smoke test failed." }
+          $noneResult = $noneOutput | ConvertFrom-Json
+          if ($noneResult.included_count -lt 1) { throw "No-exclusion test returned no usable rows." }
+          if (-not $noneResult.exclusion_summary) { throw "Exclusion summary was not returned." }
+
+          # Use the second actual column name so the test remains aligned with the fixture.
+          $targetColumn = $noneResult.columns[1]
+          if (-not $targetColumn) { throw "Smoke-test data must contain at least two columns." }
+
+          $orRequest = @{
+            data_path = $dataPath
+            format_amount_with_comma = $true
+            exclude_example_rows = $true
+            row_exclude_mode = "selected_columns_any_empty"
+            row_exclude_columns = @($targetColumn)
+          } | ConvertTo-Json -Depth 4 -Compress
+          $orOutput = $orRequest | & "src-tauri/resources/backend/word-batch-backend.exe" inspect
+          if ($LASTEXITCODE -ne 0) { throw "Selected-column OR smoke test failed." }
+          $orResult = $orOutput | ConvertFrom-Json
+          if ($orResult.included_count -ne 10) { throw "Unexpected OR included_count: $($orResult.included_count)" }
+
+          $andRequest = @{
+            data_path = $dataPath
+            format_amount_with_comma = $true
+            exclude_example_rows = $true
+            row_exclude_mode = "selected_columns_all_empty"
+            row_exclude_columns = @($targetColumn)
+          } | ConvertTo-Json -Depth 4 -Compress
+          $andOutput = $andRequest | & "src-tauri/resources/backend/word-batch-backend.exe" inspect
+          if ($LASTEXITCODE -ne 0) { throw "Selected-column AND smoke test failed." }
+          $andResult = $andOutput | ConvertFrom-Json
+          if ($andResult.included_count -ne 10) { throw "Unexpected AND included_count: $($andResult.included_count)" }
+
+          # Turning example exclusion off must not reduce the included row count.
+          $exampleRequest = @{
+            data_path = $dataPath
+            format_amount_with_comma = $true
+            exclude_example_rows = $false
+            row_exclude_mode = "none"
+            row_exclude_columns = @()
+          } | ConvertTo-Json -Compress
+          $exampleOutput = $exampleRequest | & "src-tauri/resources/backend/word-batch-backend.exe" inspect
+          if ($LASTEXITCODE -ne 0) { throw "Example-row toggle smoke test failed." }
+          $exampleResult = $exampleOutput | ConvertFrom-Json
+          if ($exampleResult.included_count -lt $noneResult.included_count) { throw "Example-row toggle behaved unexpectedly." }
       - name: Set up Node.js
         uses: actions/setup-node@v6
         with:
@@ -76,7 +128,7 @@ jobs:
       - name: Upload Windows installer
         uses: actions/upload-artifact@v7
         with:
-          name: WordBatchTool-Windows-v1.1.0
+          name: WordBatchTool-Windows-v1.2.0
           path: src-tauri/target/release/bundle/nsis/*.exe
           retention-days: 7
           if-no-files-found: error
