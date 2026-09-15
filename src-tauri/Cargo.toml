@@ -1,6 +1,6 @@
 [package]
 name = "word-batch-tauri"
-version = "1.3.0"
+version = "1.3.1"
 description = "Wordファイル一括作成ツール"
 authors = ["Imai"]
 edition = "2021"
