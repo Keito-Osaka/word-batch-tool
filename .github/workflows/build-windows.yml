@@ -65,8 +65,10 @@ jobs:
           $commonTemplateOutput = $commonTemplateRequest | & "src-tauri/resources/backend/word-batch-backend.exe" warmup-template
           if ($LASTEXITCODE -ne 0) { throw "Common-field template inspection failed." }
           $commonTemplateResult = $commonTemplateOutput | ConvertFrom-Json
-          if (($commonTemplateResult.common_fields -join ",") -ne "回答期限,担当者名,通知日") {
-            throw "Unexpected common fields: $($commonTemplateResult.common_fields -join ',')"
+          $expectedCommonFields = @("共通金額", "回答期限", "担当者名", "通知日")
+          $actualCommonFields = @($commonTemplateResult.common_fields)
+          if (Compare-Object -ReferenceObject $expectedCommonFields -DifferenceObject $actualCommonFields) {
+            throw "Unexpected common fields: $($actualCommonFields -join ',')"
           }
           if (($commonTemplateResult.row_fields -join ",") -ne "学校名") {
             throw "Unexpected row fields: $($commonTemplateResult.row_fields -join ',')"
