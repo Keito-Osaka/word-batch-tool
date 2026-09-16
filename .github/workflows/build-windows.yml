@@ -125,6 +125,14 @@ jobs:
           node-version: "22"
       - name: Install frontend dependencies
         run: npm install
+      - name: Prepare frontend app icon
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "src-tauri/icons/icon.png")) {
+            throw "src-tauri/icons/icon.png was not found."
+          }
+          New-Item -ItemType Directory -Force public | Out-Null
+          Copy-Item "src-tauri/icons/icon.png" "public/app-icon.png" -Force
       - name: Generate Windows icon set
         shell: pwsh
         run: |
