@@ -406,6 +406,37 @@ def inspect_effective_placeholder_fonts_with_word(template_path):
         try: pythoncom.CoUninitialize()
         except Exception: pass
 
+def get_direct_run_font_profile(run):
+    """Return only font attributes explicitly stored on this run.
+
+    Direct formatting expresses the template author's explicit choice and therefore
+    takes precedence over the effective values returned by Word COM. Missing
+    attributes are left as None and later filled from Word's effective profile.
+    """
+    profile = {"ascii": None, "hAnsi": None, "eastAsia": None, "cs": None}
+    rPr = run._element.rPr
+    if rPr is None or rPr.rFonts is None:
+        return profile
+    for key in profile:
+        profile[key] = _clean_word_font_name(rPr.rFonts.get(qn("w:" + key)))
+    return profile
+
+
+def merge_font_profiles(effective_profile, direct_profile):
+    """Prefer explicit run fonts and use Word COM only for unspecified scripts."""
+    if not effective_profile:
+        raise RuntimeError("置換元の実効フォント情報がありません。テンプレートを再選択してください。")
+    direct_profile = direct_profile or {}
+    merged = {
+        key: direct_profile.get(key) or effective_profile.get(key)
+        for key in ("ascii", "hAnsi", "eastAsia", "cs")
+    }
+    missing = [key for key, value in merged.items() if not value]
+    if missing:
+        raise RuntimeError("置換元のフォント情報を解決できませんでした: " + ", ".join(missing))
+    return merged
+
+
 def apply_word_font_profile(run, profile):
     if not profile:
         raise RuntimeError("置換元の実効フォント情報がありません。テンプレートを再選択してください。")
@@ -539,7 +570,9 @@ def replace_text_in_paragraph(paragraph, replacements):
         source_run = existing_runs[source_index]
         copy_run_format(source_run, target_run)
         if segment["is_replacement"]:
-            apply_word_font_profile(target_run, next_word_effective_font_profile(segment["profile_key"]))
+            effective_profile = next_word_effective_font_profile(segment["profile_key"])
+            direct_profile = get_direct_run_font_profile(source_run)
+            apply_word_font_profile(target_run, merge_font_profiles(effective_profile, direct_profile))
         target_run.text = segment["text"]
 
 
