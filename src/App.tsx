@@ -20,7 +20,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import appIcon from "./assets/app-icon.png";
+import appIcon from "../src-tauri/icons/icon.png";
 import type { DataPreview, DroppedPathClassification, GenerateResult, GenerationProgress, Settings, TemplateInspection, CommonValues } from "./types";
 
 const APP_VERSION = "Ver.2.0.0";
