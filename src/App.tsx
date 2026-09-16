@@ -20,9 +20,10 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import appIcon from "./assets/app-icon.png";
 import type { DataPreview, DroppedPathClassification, GenerateResult, GenerationProgress, Settings, TemplateInspection, CommonValues } from "./types";
 
-const APP_VERSION = "Ver.1.3.1";
+const APP_VERSION = "Ver.2.0.0";
 const DEFAULT_AMOUNT_INCLUDE_KEYWORDS = [
   "交付申請額",
   "交付決定額",
@@ -208,7 +209,8 @@ function HelpGuide({ onClose }: { onClose: () => void }) {
             {section === "history" && (
               <div className="help-section">
                 <h3>更新履歴</h3>
-                <article className="release-card"><div><strong>{APP_VERSION}</strong><span>数値置換時のフォント修正</span></div><ul><li><code>{`{{項目名}}`}</code>と<code>&lt;&lt;項目名&gt;&gt;</code>へ数値を差し込んだ際も、テンプレートのフォントを維持するよう修正</li><li>カンマ区切りの有無にかかわらず、英数字用フォント属性を明示的に維持</li></ul></article>
+                <article className="release-card"><div><strong>{APP_VERSION}</strong><span>画面構成とWord書式継承の刷新</span></div><ul><li>テンプレートと置換データを関連操作ごとに左右2列で整理</li><li>正式なアプリアイコンをヘッダーへ表示</li><li>Microsoft Word自身が判定する実効フォントを置換後へ継承</li><li>デスクトップ版Microsoft Wordを必須化</li></ul></article>
+                <article className="release-card release-card-previous"><div><strong>Ver.1.3.1</strong><span>数値置換時のフォント修正</span></div><ul><li><code>{`{{項目名}}`}</code>と<code>&lt;&lt;項目名&gt;&gt;</code>へ数値を差し込んだ際も、テンプレートのフォントを維持するよう修正</li><li>カンマ区切りの有無にかかわらず、英数字用フォント属性を明示的に維持</li></ul></article>
                 <article className="release-card release-card-previous"><div><strong>Ver.1.3.0</strong><span>共通項目の置換</span></div><ul><li>&lt;&lt;項目名&gt;&gt;による全文書共通の置換に対応</li><li>テンプレートから共通項目を自動検出</li><li>共通項目の入力・確認画面と未入力チェックを追加</li></ul></article>
                 <article className="release-card release-card-previous"><div><strong>Ver.1.2.0</strong><span>設定とデータ除外の改善</span></div><ul><li>詳細設定を中央モーダルへ変更</li><li>記入例行の除外を選択可能に変更</li><li>除外なし、複数列のAND・OR条件を追加</li><li>除外理由と条件概要の表示を改善</li><li>数値のカンマ区切りとして名称と説明を整理</li></ul></article>
                 <article className="release-card"><div><strong>Ver.1.1.0</strong><span>操作性・互換性の改善</span></div><ul><li>数字を含む置換値でもテンプレートのフォントを維持するよう修正</li><li>初回セットアップと文書処理をバックグラウンド化し、画面の応答性を改善</li><li>初回セットアップの所要時間案内を改善</li><li>準備中もテンプレート、置換データ、出力先を選択可能に変更</li><li>準備中に選択したファイルを、完了後に自動確認する機能を追加</li></ul></article>
@@ -220,7 +222,7 @@ function HelpGuide({ onClose }: { onClose: () => void }) {
             {section === "about" && (
               <div className="help-section">
                 <h3>このアプリについて</h3>
-                <div className="about-card"><div className="about-symbol"><FileText size={24} /></div><div><strong>Wordファイル一括作成</strong><span>{APP_VERSION}</span></div></div>
+                <div className="about-card"><div className="about-symbol about-symbol-image"><img src={appIcon} alt="" /></div><div><strong>Wordファイル一括作成</strong><span>{APP_VERSION}</span></div></div>
                 <div className="help-rule-list about-list">
                   <p><strong>制作者</strong><span>今井 啓登</span></p>
                   <p><strong>連絡先</strong><span><a href="mailto:ImaiK@mbox.pref.osaka.lg.jp">ImaiK@mbox.pref.osaka.lg.jp</a></span></p>
@@ -625,7 +627,7 @@ export default function App() {
       {dropNotice && <div className="drop-toast"><Check size={15} />{dropNotice}</div>}
       <header>
         <div className="brand-block">
-          <div className="app-symbol" aria-hidden="true"><FileText size={19} /></div>
+          <div className="app-symbol app-symbol-image" aria-hidden="true"><img src={appIcon} alt="" /></div>
           <div>
             <span className="eyebrow">DOCUMENT AUTOMATION</span>
             <div className="title-row"><h1>Wordファイル一括作成</h1><span className="version-badge">{APP_VERSION}</span></div>
@@ -654,36 +656,29 @@ export default function App() {
         {warmupState === "error" && (
           <section className="error" role="alert"><strong>文書処理を準備できませんでした</strong><p>{warmupError}</p></section>
         )}
-        <section className="picker-grid">
-          <Picker kind="word" title="テンプレート" path={templatePath} disabled={busy} meta={templateWarmupState === "queued" ? "セットアップ完了後に確認します" : templateWarmupState === "running" ? "テンプレートを確認しています…" : templateWarmupState === "ready" ? "読み込みが完了しました" : undefined} onPick={chooseTemplate} />
-          <Picker
-            kind="excel"
-            title="置換データ"
-            path={dataPath}
-            disabled={busy}
-            meta={dataLoadState === "queued" ? "セットアップ完了後に確認します" : dataLoadState === "running" ? "置換データを確認しています…" : dataLoadState === "ready" ? "読み込みが完了しました" : undefined}
-            onPick={chooseData}
-          />
+        <section className="source-groups">
+          <section className="source-group template-group">
+            <div className="source-group-heading"><span>1</span><strong>テンプレート</strong></div>
+            <Picker kind="word" title="テンプレート" path={templatePath} disabled={busy} meta={templateWarmupState === "queued" ? "セットアップ完了後に確認します" : templateWarmupState === "running" ? "Microsoft Wordで書式を確認しています…" : templateWarmupState === "ready" ? "読み込みが完了しました" : undefined} onPick={chooseTemplate} />
+            <div className="source-group-detail">
+              {commonFields.length > 0 ? <button className={`common-card ${missingCommonFields.length ? "incomplete" : "complete"}`} onClick={() => { setCommonDraft({ ...commonValues }); setCommonOpen(true); }} disabled={busy}><span className="common-card-symbol">&lt;&lt;&gt;&gt;</span><span><strong>共通項目を入力</strong><small>{missingCommonFields.length ? `${commonFields.length}項目のうち${missingCommonFields.length}項目が未入力です` : `${commonFields.length}項目すべて入力済みです`}</small></span><em>{commonCompletedCount}/{commonFields.length}</em><ChevronRight size={18}/></button> : <div className="source-group-placeholder">{templatePath ? "共通項目はありません" : "テンプレート選択後に共通項目を表示します"}</div>}
+            </div>
+          </section>
+          <section className="source-group data-group">
+            <div className="source-group-heading"><span>2</span><strong>置換データ</strong></div>
+            <Picker kind="excel" title="置換データ" path={dataPath} disabled={busy} meta={dataLoadState === "queued" ? "セットアップ完了後に確認します" : dataLoadState === "running" ? "置換データを確認しています…" : dataLoadState === "ready" ? "読み込みが完了しました" : undefined} onPick={chooseData} />
+            <div className="source-group-detail">
+              {preview ? <button className="preview-link" onClick={() => { setPreviewTab("included"); setPreviewOpen(true); }}><span><strong>置換データを確認</strong><small>読込{preview.original_count}件、使用{preview.included_count}件、除外{preview.excluded_count}件</small></span><ChevronRight size={18}/></button> : <div className="source-group-placeholder">置換データ選択後に確認結果を表示します</div>}
+            </div>
+          </section>
         </section>
-
-        {commonFields.length > 0 && (
-          <button className={`common-card ${missingCommonFields.length ? "incomplete" : "complete"}`} onClick={() => { setCommonDraft({ ...commonValues }); setCommonOpen(true); }} disabled={busy}>
-            <span className="common-card-symbol">&lt;&lt;&gt;&gt;</span><span><strong>共通項目を入力</strong><small>{missingCommonFields.length ? `${commonFields.length}項目のうち${missingCommonFields.length}項目が未入力です` : `${commonFields.length}項目すべて入力済みです`}</small></span><em>{commonCompletedCount}/{commonFields.length}</em><ChevronRight size={18}/>
-          </button>
-        )}
         {templateInspection?.conflicting_fields?.length ? <section className="template-warning"><strong>同じ名前が行別項目と共通項目にあります</strong><p>{templateInspection.conflicting_fields.join("、")}。記号の指定が正しいか確認してください。</p></section> : null}
-        {preview && (
-          <button className="preview-link" onClick={() => { setPreviewTab("included"); setPreviewOpen(true); }}>
-            <span>
-              <strong>置換データを確認</strong>
-              <small>読込{preview.original_count}件、使用{preview.included_count}件、除外{preview.excluded_count}件</small>
-            </span>
-            <ChevronRight size={18} />
-          </button>
-        )}
+        {templateInspection?.mixed_font_fields?.length ? <section className="template-warning"><strong>複数の実効フォントを含む差し込み項目があります</strong><p>{templateInspection.mixed_font_fields.join("、")}。置換時はMicrosoft Wordが先頭文字に適用する書式を使用します。</p></section> : null}
 
+        <div className="standalone-step-heading"><span>3</span><strong>出力先</strong></div>
         <Picker kind="folder" title="出力先" path={outputPath} disabled={busy} onPick={chooseOutput} />
 
+        <div className="standalone-step-heading output-heading"><span>4</span><strong>出力設定</strong></div>
         <section className="options-card">
           <div>
             <label>出力形式</label>

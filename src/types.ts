@@ -73,5 +73,6 @@ export interface TemplateInspection {
   common_fields: string[];
   conflicting_fields: string[];
   malformed_common_placeholders: string[];
+  mixed_font_fields?: string[];
 }
 export type CommonValues = Record<string, string>;
