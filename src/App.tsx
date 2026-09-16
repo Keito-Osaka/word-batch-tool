@@ -150,9 +150,8 @@ function HelpGuide({ onClose }: { onClose: () => void }) {
                 <ol className="help-steps">
                   <li><span>1</span><div><strong>テンプレートを選択</strong><p>差し込み項目を含むWordファイルを選びます。ドラッグ＆ドロップにも対応しています。</p></div></li>
                   <li><span>2</span><div><strong>置換データを選択</strong><p>ExcelまたはCSVを選びます。「置換データを確認」から内容と除外行を確認できます。</p></div></li>
-                  <li><span>3</span><div><strong>出力先を選択</strong><p>作成したファイルを保存するフォルダを選びます。</p></div></li>
-                  <li><span>4</span><div><strong>形式と方法を指定</strong><p>WordまたはPDF、個別・結合・ZIPを選びます。</p></div></li>
-                  <li><span>5</span><div><strong>複製を開始</strong><p>件数と出力ファイル名の例を確認してから開始します。</p></div></li>
+                  <li><span>3</span><div><strong>出力設定を指定</strong><p>出力先フォルダを選び、WordまたはPDF、個別・結合・ZIPを指定します。</p></div></li>
+                  <li><span>4</span><div><strong>複製を開始</strong><p>件数と出力ファイル名の例を確認してから開始します。</p></div></li>
                 </ol>
               </div>
             )}
@@ -209,7 +208,7 @@ function HelpGuide({ onClose }: { onClose: () => void }) {
             {section === "history" && (
               <div className="help-section">
                 <h3>更新履歴</h3>
-                <article className="release-card"><div><strong>{APP_VERSION}</strong><span>画面構成とWord書式継承の刷新</span></div><ul><li>テンプレートと置換データを関連操作ごとに左右2列で整理</li><li>正式なアプリアイコンをヘッダーへ表示</li><li>Microsoft Word自身が判定する実効フォントを置換後へ継承</li><li>デスクトップ版Microsoft Wordを必須化</li></ul></article>
+                <article className="release-card"><div><strong>{APP_VERSION}</strong><span>画面構成とWord書式継承の刷新</span></div><ul><li>テンプレート、置換データ、出力設定を関連操作ごとに整理</li><li>正式なアプリアイコンをヘッダーへ表示</li><li>Microsoft Word自身が判定する実効フォントを置換後へ継承</li><li>デスクトップ版Microsoft Wordを必須化</li></ul></article>
                 <article className="release-card release-card-previous"><div><strong>Ver.1.3.1</strong><span>数値置換時のフォント修正</span></div><ul><li><code>{`{{項目名}}`}</code>と<code>&lt;&lt;項目名&gt;&gt;</code>へ数値を差し込んだ際も、テンプレートのフォントを維持するよう修正</li><li>カンマ区切りの有無にかかわらず、英数字用フォント属性を明示的に維持</li></ul></article>
                 <article className="release-card release-card-previous"><div><strong>Ver.1.3.0</strong><span>共通項目の置換</span></div><ul><li>&lt;&lt;項目名&gt;&gt;による全文書共通の置換に対応</li><li>テンプレートから共通項目を自動検出</li><li>共通項目の入力・確認画面と未入力チェックを追加</li></ul></article>
                 <article className="release-card release-card-previous"><div><strong>Ver.1.2.0</strong><span>設定とデータ除外の改善</span></div><ul><li>詳細設定を中央モーダルへ変更</li><li>記入例行の除外を選択可能に変更</li><li>除外なし、複数列のAND・OR条件を追加</li><li>除外理由と条件概要の表示を改善</li><li>数値のカンマ区切りとして名称と説明を整理</li></ul></article>
@@ -675,11 +674,11 @@ export default function App() {
         {templateInspection?.conflicting_fields?.length ? <section className="template-warning"><strong>同じ名前が行別項目と共通項目にあります</strong><p>{templateInspection.conflicting_fields.join("、")}。記号の指定が正しいか確認してください。</p></section> : null}
         {templateInspection?.mixed_font_fields?.length ? <section className="template-warning"><strong>複数の実効フォントを含む差し込み項目があります</strong><p>{templateInspection.mixed_font_fields.join("、")}。置換時はMicrosoft Wordが先頭文字に適用する書式を使用します。</p></section> : null}
 
-        <div className="standalone-step-heading"><span>3</span><strong>出力先</strong></div>
-        <Picker kind="folder" title="出力先" path={outputPath} disabled={busy} onPick={chooseOutput} />
-
-        <div className="standalone-step-heading output-heading"><span>4</span><strong>出力設定</strong></div>
-        <section className="options-card">
+        <div className="standalone-step-heading output-heading"><span>3</span><strong>出力設定</strong></div>
+        <section className="options-card output-settings-card">
+          <div className="output-destination">
+            <Picker kind="folder" title="出力先" path={outputPath} disabled={busy} onPick={chooseOutput} />
+          </div>
           <div>
             <label>出力形式</label>
             <Segmented
