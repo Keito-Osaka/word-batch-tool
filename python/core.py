@@ -1,5 +1,7 @@
 
 import os
+import gc
+import time
 import re
 import tempfile
 import zipfile
@@ -352,16 +354,24 @@ def inspect_effective_placeholder_fonts_with_word(template_path):
     except Exception as e:
         raise RuntimeError("Ver.2.0.0ではデスクトップ版Microsoft Wordが必要です。") from e
     word = doc = None
+    stories = []
+    story = rng = first = None
+    word_pid = None
     profiles = {}
     mixed = []
     try:
         pythoncom.CoInitialize()
         word = win32com.client.DispatchEx("Word.Application")
+        try:
+            import win32process
+            _, word_pid = win32process.GetWindowThreadProcessId(word.Hwnd)
+        except Exception:
+            word_pid = None
         word.Visible = False
         word.DisplayAlerts = 0
         doc = word.Documents.Open(os.path.abspath(template_path), ReadOnly=True, AddToRecentFiles=False)
         patterns = [("row", r"\{\{[^{}\r\n]+\}\}"), ("common", r"<<[^<>\r\n]+>>")]
-        stories = []
+        stories.clear()
         for story_type in range(1, 18):
             try:
                 story = doc.StoryRanges(story_type)
@@ -397,14 +407,65 @@ def inspect_effective_placeholder_fonts_with_word(template_path):
     except Exception as e:
         raise RuntimeError("Microsoft Wordを使用してテンプレートの実効フォントを確認できませんでした。\n\n" + str(e)) from e
     finally:
+        # Child COM objects (Range/StoryRange/Font) keep WINWORD.EXE alive even after
+        # Document.Close and Application.Quit. Release every proxy before quitting.
         try:
-            if doc is not None: doc.Close(False)
-        except Exception: pass
+            first = None
+            rng = None
+            story = None
+            stories.clear()
+            gc.collect()
+        except Exception:
+            pass
         try:
-            if word is not None: word.Quit()
-        except Exception: pass
-        try: pythoncom.CoUninitialize()
-        except Exception: pass
+            if doc is not None:
+                doc.Close(SaveChanges=0)
+        except Exception:
+            pass
+        finally:
+            doc = None
+            gc.collect()
+        try:
+            if word is not None:
+                word.Quit(SaveChanges=0)
+        except Exception:
+            pass
+        finally:
+            word = None
+            gc.collect()
+        try:
+            pythoncom.CoFreeUnusedLibraries()
+        except Exception:
+            pass
+        try:
+            pythoncom.CoUninitialize()
+        except Exception:
+            pass
+
+        # DispatchEx creates a dedicated Word process. Normally Quit ends it.
+        # If COM cleanup fails, terminate only that dedicated process so the
+        # template is never left locked. Existing user-opened Word instances are untouched.
+        if word_pid:
+            try:
+                import subprocess
+                import ctypes
+                SYNCHRONIZE = 0x00100000
+                handle = ctypes.windll.kernel32.OpenProcess(SYNCHRONIZE, False, word_pid)
+                if handle:
+                    try:
+                        exited = ctypes.windll.kernel32.WaitForSingleObject(handle, 2500) == 0
+                    finally:
+                        ctypes.windll.kernel32.CloseHandle(handle)
+                    if not exited:
+                        subprocess.run(
+                            ["taskkill", "/PID", str(word_pid), "/T", "/F"],
+                            stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL,
+                            check=False,
+                            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+                        )
+            except Exception:
+                pass
 
 def get_direct_run_font_profile(run):
     """Return only font attributes explicitly stored on this run.
@@ -449,18 +510,21 @@ def apply_word_font_profile(run, profile):
         rFonts.set(qn("w:" + key), profile[key])
     run.font.name = profile["ascii"]
 
-def get_run_preferred_font(run, default_font="ＭＳ 明朝"):
+def get_run_preferred_font(run, default_font=None):
     rPr = run._element.rPr
     if rPr is not None and rPr.rFonts is not None:
         east_asia = rPr.rFonts.get(qn("w:eastAsia"))
         ascii_font = rPr.rFonts.get(qn("w:ascii"))
         hansi_font = rPr.rFonts.get(qn("w:hAnsi"))
+        cs_font = rPr.rFonts.get(qn("w:cs"))
         if east_asia:
             return east_asia
         if ascii_font:
             return ascii_font
         if hansi_font:
             return hansi_font
+        if cs_font:
+            return cs_font
     if run.font.name:
         return run.font.name
     return default_font
@@ -546,10 +610,23 @@ def replace_text_in_paragraph(paragraph, replacements):
         candidates = []
         for i in range(start, min(end, len(char_to_run_index))):
             run_index = char_to_run_index[i]
-            if original_text[i] not in "{}<>":
+            if run_index not in candidates:
+                candidates.append(run_index)
+        # Prefer the first run inside the placeholder that explicitly specifies a font.
+        for run_index in candidates:
+            if get_run_preferred_font(paragraph.runs[run_index], None):
                 return run_index
-            candidates.append(run_index)
-        return candidates[0] if candidates else 0
+        # If the placeholder itself inherits its font, use the nearest explicitly
+        # formatted run before it, then after it. Never guess a fixed font.
+        before = char_to_run_index[start - 1] if start > 0 and char_to_run_index else None
+        after = char_to_run_index[end] if end < len(char_to_run_index) else None
+        for run_index in (before, after):
+            if run_index is not None and get_run_preferred_font(paragraph.runs[run_index], None):
+                return run_index
+        raise RuntimeError(
+            "差し込み項目のフォントを取得できませんでした。"
+            "プレースホルダー全体へフォントを直接指定してください。"
+        )
 
     for m in matches:
         add_original_segments(cursor, m["start"])
@@ -570,9 +647,13 @@ def replace_text_in_paragraph(paragraph, replacements):
         source_run = existing_runs[source_index]
         copy_run_format(source_run, target_run)
         if segment["is_replacement"]:
-            effective_profile = next_word_effective_font_profile(segment["profile_key"])
-            direct_profile = get_direct_run_font_profile(source_run)
-            apply_word_font_profile(target_run, merge_font_profiles(effective_profile, direct_profile))
+            font_name = source_fonts[source_index]
+            if not font_name:
+                raise RuntimeError("差し込み項目のフォントを取得できませんでした。")
+            # Apply the placeholder's visible font to every Word script slot.
+            # This preserves the same appearance when Japanese placeholder text
+            # is replaced with digits, Latin letters, punctuation, or mixed text.
+            set_run_font_all(target_run, font_name)
         target_run.text = segment["text"]
 
 
