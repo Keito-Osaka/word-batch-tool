@@ -92,7 +92,8 @@ def warmup_template(req):
     for section in document.sections:
         _=len(section.header.paragraphs)+len(section.footer.paragraphs)
     fields=core.inspect_template_placeholders(path)
-    return {"success":True,"paragraph_count":paragraph_count,"table_count":table_count,"section_count":section_count,**fields}
+    word_fonts=core.inspect_effective_placeholder_fonts_with_word(path)
+    return {"success":True,"paragraph_count":paragraph_count,"table_count":table_count,"section_count":section_count,**fields,"mixed_font_fields":word_fonts["mixed_font_fields"]}
 
 def zip_files(folder,zip_path,total):
     files=[f for f in os.listdir(folder) if os.path.isfile(os.path.join(folder,f))]
@@ -104,6 +105,8 @@ def generate(req):
     if not output: raise ValueError("出力先が指定されていません。")
     os.makedirs(output,exist_ok=True); emit_progress("prepare","置換データを準備しています",0,0,2)
     df=core.prepare_dataframe(data,format_amount_with_comma=req.get("format_amount_with_comma",True),amount_include_keywords=req.get("amount_include_keywords"),amount_exclude_keywords=req.get("amount_exclude_keywords"),row_exclude_mode=req.get("row_exclude_mode",core.DEFAULT_ROW_EXCLUDE_MODE),row_exclude_target_column_number=req.get("row_exclude_target_column_number",core.DEFAULT_ROW_EXCLUDE_TARGET_COLUMN_NUMBER),row_exclude_columns=req.get("row_exclude_columns",[]),exclude_example_rows=req.get("exclude_example_rows",True))
+    word_fonts=core.inspect_effective_placeholder_fonts_with_word(template)
+    core.set_word_effective_font_profiles(word_fonts["profiles"])
     common_values={str(k):"" if v is None else str(v) for k,v in req.get("common_values",{}).items()}
     template_fields=core.inspect_template_placeholders(template)
     missing=[name for name in template_fields["common_fields"] if not common_values.get(name,"").strip()]

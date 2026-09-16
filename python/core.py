@@ -302,6 +302,122 @@ def prepare_dataframe(file_path, format_amount_with_comma=False, amount_include_
 # =====================================================
 # Word置換・フォント維持
 # =====================================================
+# Microsoft Wordが解決したプレースホルダーの実効フォント。
+# bridge.pyの1コマンド実行中だけ保持し、文書生成後はプロセス終了とともに破棄される。
+_WORD_EFFECTIVE_FONT_PROFILES = {}
+_WORD_EFFECTIVE_FONT_POSITIONS = {}
+
+def set_word_effective_font_profiles(profiles):
+    global _WORD_EFFECTIVE_FONT_PROFILES, _WORD_EFFECTIVE_FONT_POSITIONS
+    _WORD_EFFECTIVE_FONT_PROFILES = profiles or {}
+    _WORD_EFFECTIVE_FONT_POSITIONS = {}
+
+def reset_word_effective_font_positions():
+    global _WORD_EFFECTIVE_FONT_POSITIONS
+    _WORD_EFFECTIVE_FONT_POSITIONS = {}
+
+def next_word_effective_font_profile(profile_key):
+    profiles = _WORD_EFFECTIVE_FONT_PROFILES.get(profile_key) or []
+    if not profiles:
+        return None
+    index = _WORD_EFFECTIVE_FONT_POSITIONS.get(profile_key, 0)
+    _WORD_EFFECTIVE_FONT_POSITIONS[profile_key] = index + 1
+    return profiles[min(index, len(profiles) - 1)]
+
+def _clean_word_font_name(value):
+    if value is None or isinstance(value, (int, float)):
+        return None
+    value = str(value).strip()
+    return value if value and value not in ("9999999", "-9999999") else None
+
+def _font_profile_from_word_range(word_range):
+    font = word_range.Font
+    return {
+        "ascii": _clean_word_font_name(getattr(font, "NameAscii", None)) or _clean_word_font_name(getattr(font, "Name", None)),
+        "hAnsi": _clean_word_font_name(getattr(font, "Name", None)) or _clean_word_font_name(getattr(font, "NameAscii", None)),
+        "eastAsia": _clean_word_font_name(getattr(font, "NameFarEast", None)),
+        "cs": _clean_word_font_name(getattr(font, "NameOther", None)),
+    }
+
+def inspect_effective_placeholder_fonts_with_word(template_path):
+    """Microsoft Word自身が表示に使用する実効フォントを取得する。
+
+    StoryRangesとNextStoryRangeを巡回するため、本文、ヘッダー、フッター、
+    テキストボックス等をWordのRangeとして検索できる。混在書式を返すRangeでは、
+    プレースホルダー先頭文字のRangeをWordに再評価させる。
+    """
+    try:
+        import pythoncom
+        import win32com.client
+    except Exception as e:
+        raise RuntimeError("Ver.2.0.0ではデスクトップ版Microsoft Wordが必要です。") from e
+    word = doc = None
+    profiles = {}
+    mixed = []
+    try:
+        pythoncom.CoInitialize()
+        word = win32com.client.DispatchEx("Word.Application")
+        word.Visible = False
+        word.DisplayAlerts = 0
+        doc = word.Documents.Open(os.path.abspath(template_path), ReadOnly=True, AddToRecentFiles=False)
+        patterns = [("row", r"\{\{[^{}\r\n]+\}\}"), ("common", r"<<[^<>\r\n]+>>")]
+        stories = []
+        for story_type in range(1, 18):
+            try:
+                story = doc.StoryRanges(story_type)
+                while story is not None:
+                    stories.append(story.Duplicate)
+                    story = story.NextStoryRange
+            except Exception:
+                pass
+        for story in stories:
+            text = story.Text or ""
+            for kind, pattern in patterns:
+                for match in re.finditer(pattern, text):
+                    token = match.group(0)
+                    name = token[2:-2]
+                    rng = story.Duplicate
+                    rng.SetRange(story.Start + match.start(), story.Start + match.end())
+                    profile = _font_profile_from_word_range(rng)
+                    if not all(profile.values()):
+                        mixed.append(name)
+                        first = rng.Duplicate
+                        first.SetRange(rng.Start, min(rng.Start + 1, rng.End))
+                        first_profile = _font_profile_from_word_range(first)
+                        profile = {k: profile.get(k) or first_profile.get(k) for k in ("ascii", "hAnsi", "eastAsia", "cs")}
+                    missing = [k for k,v in profile.items() if not v]
+                    if missing:
+                        raise RuntimeError(f"Wordから「{name}」の実効フォントを取得できませんでした: {', '.join(missing)}")
+                    profile_key = f"{kind}:{name}"
+                    existing = profiles.setdefault(profile_key, [])
+                    if existing and profile != existing[0]:
+                        mixed.append(name)
+                    existing.append(profile)
+        return {"profiles": profiles, "mixed_font_fields": sorted(set(mixed))}
+    except Exception as e:
+        raise RuntimeError("Microsoft Wordを使用してテンプレートの実効フォントを確認できませんでした。\n\n" + str(e)) from e
+    finally:
+        try:
+            if doc is not None: doc.Close(False)
+        except Exception: pass
+        try:
+            if word is not None: word.Quit()
+        except Exception: pass
+        try: pythoncom.CoUninitialize()
+        except Exception: pass
+
+def apply_word_font_profile(run, profile):
+    if not profile:
+        raise RuntimeError("置換元の実効フォント情報がありません。テンプレートを再選択してください。")
+    rPr = run._element.get_or_add_rPr()
+    rFonts = rPr.rFonts
+    if rFonts is None:
+        rFonts = OxmlElement("w:rFonts")
+        rPr.append(rFonts)
+    for key in ("eastAsia", "ascii", "hAnsi", "cs"):
+        rFonts.set(qn("w:" + key), profile[key])
+    run.font.name = profile["ascii"]
+
 def get_run_preferred_font(run, default_font="ＭＳ 明朝"):
     rPr = run._element.rPr
     if rPr is not None and rPr.rFonts is not None:
@@ -364,7 +480,7 @@ def replace_text_in_paragraph(paragraph, replacements):
                 pos = original_text.find(placeholder, start)
                 if pos == -1:
                     break
-                matches.append({"start": pos, "end": pos + len(placeholder), "value": "" if value is None else str(value), "opener": opener, "closer": closer})
+                matches.append({"start": pos, "end": pos + len(placeholder), "value": "" if value is None else str(value), "opener": opener, "closer": closer, "key": str(key), "kind": "row" if opener == "{{" else "common"})
                 start = pos + len(placeholder)
     if not matches:
         return
@@ -406,7 +522,7 @@ def replace_text_in_paragraph(paragraph, replacements):
 
     for m in matches:
         add_original_segments(cursor, m["start"])
-        segments.append({"text": m["value"], "source_run_index": placeholder_source_run_index(m["start"], m["end"]), "is_replacement": True})
+        segments.append({"text": m["value"], "source_run_index": placeholder_source_run_index(m["start"], m["end"]), "is_replacement": True, "profile_key": f'{m["kind"]}:{m["key"]}'})
         cursor = m["end"]
     add_original_segments(cursor, len(original_text))
 
@@ -423,9 +539,7 @@ def replace_text_in_paragraph(paragraph, replacements):
         source_run = existing_runs[source_index]
         copy_run_format(source_run, target_run)
         if segment["is_replacement"]:
-            # eastAsiaだけでなくascii・hAnsi・csにも同じフォントを明示し、
-            # 数字、カンマ、英字を含む置換値でもテンプレートの書体を維持する。
-            set_run_font_all(target_run, source_fonts[source_index])
+            apply_word_font_profile(target_run, next_word_effective_font_profile(segment["profile_key"]))
         target_run.text = segment["text"]
 
 
@@ -440,6 +554,7 @@ def replace_text_in_document_part(part, replacements, common_replacements=None):
     for table in part.tables:
         replace_text_in_table(table, replacements, common_replacements)
 def replace_placeholders(doc, replacements, common_replacements=None):
+    reset_word_effective_font_positions()
     replace_text_in_document_part(doc, replacements, common_replacements)
     for section in doc.sections:
         replace_text_in_document_part(section.header, replacements, common_replacements)
