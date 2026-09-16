@@ -658,7 +658,7 @@ export default function App() {
         <section className="source-groups">
           <section className="source-group template-group">
             <div className="source-group-heading"><span>1</span><strong>テンプレート</strong></div>
-            <Picker kind="word" title="テンプレート" path={templatePath} disabled={busy} meta={templateWarmupState === "queued" ? "セットアップ完了後に確認します" : templateWarmupState === "running" ? "Microsoft Wordで書式を確認しています…" : templateWarmupState === "ready" ? "読み込みが完了しました" : undefined} onPick={chooseTemplate} />
+            <Picker kind="word" title="テンプレート" path={templatePath} disabled={busy} meta={templateWarmupState === "queued" ? "セットアップ完了後に確認します" : templateWarmupState === "running" ? "テンプレートの書式を確認しています…" : templateWarmupState === "ready" ? "読み込みが完了しました" : undefined} onPick={chooseTemplate} />
             <div className="source-group-detail">
               {commonFields.length > 0 ? <button className={`common-card ${missingCommonFields.length ? "incomplete" : "complete"}`} onClick={() => { setCommonDraft({ ...commonValues }); setCommonOpen(true); }} disabled={busy}><span className="common-card-symbol">&lt;&lt;&gt;&gt;</span><span><strong>共通項目を入力</strong><small>{missingCommonFields.length ? `${commonFields.length}項目のうち${missingCommonFields.length}項目が未入力です` : `${commonFields.length}項目すべて入力済みです`}</small></span><em>{commonCompletedCount}/{commonFields.length}</em><ChevronRight size={18}/></button> : <div className="source-group-placeholder">{templatePath ? "共通項目はありません" : "テンプレート選択後に共通項目を表示します"}</div>}
             </div>
@@ -672,23 +672,18 @@ export default function App() {
           </section>
         </section>
         {templateInspection?.conflicting_fields?.length ? <section className="template-warning"><strong>同じ名前が行別項目と共通項目にあります</strong><p>{templateInspection.conflicting_fields.join("、")}。記号の指定が正しいか確認してください。</p></section> : null}
-        {templateInspection?.mixed_font_fields?.length ? <section className="template-warning"><strong>複数の実効フォントを含む差し込み項目があります</strong><p>{templateInspection.mixed_font_fields.join("、")}。置換時はMicrosoft Wordが先頭文字に適用する書式を使用します。</p></section> : null}
 
-        <div className="standalone-step-heading output-heading"><span>3</span><strong>出力設定</strong></div>
         <section className="options-card output-settings-card">
-          <div className="output-destination">
-            <Picker kind="folder" title="出力先" path={outputPath} disabled={busy} onPick={chooseOutput} />
-          </div>
-          <div>
+          <div className="source-group-heading output-settings-heading"><span>3</span><strong>出力設定</strong></div>
+          <div className="output-control output-format-control">
             <label>出力形式</label>
             <Segmented
               value={settings.outputFormat}
               onChange={(value) => setSettings((current) => ({ ...current, outputFormat: value }))}
               items={[{ value: "word", label: "Word" }, { value: "pdf", label: "PDF" }]}
             />
-            
           </div>
-          <div>
+          <div className="output-control output-method-control">
             <label>出力方法</label>
             <Segmented
               value={settings.outputMethod}
@@ -699,7 +694,10 @@ export default function App() {
                 { value: "zip", label: "ZIP" },
               ]}
             />
-            
+          </div>
+          <div className="output-control output-destination">
+            <label>出力先</label>
+            <Picker kind="folder" title="出力先" path={outputPath} disabled={busy} onPick={chooseOutput} />
           </div>
           <div className="settings-footer">
             <div className="filename-inline" title={templatePath ? exampleName : undefined}>

@@ -74,3 +74,19 @@ button:focus-visible,input:focus-visible,select:focus-visible,.table-scroll:focu
 .output-destination .picker:hover:not(:disabled){background:var(--surface-solid)}
 .output-settings-card .settings-footer{grid-column:1/-1}
 @media(max-width:720px){.output-settings-card{grid-template-columns:1fr}.output-destination{grid-column:1}}
+
+/* Compact, integrated output settings */
+.output-settings-card{grid-template-columns:minmax(145px,.72fr) minmax(220px,1fr) minmax(300px,1.55fr);grid-template-rows:auto auto auto;align-items:end;gap:15px 16px}
+.output-settings-heading{grid-column:1/-1;margin:0 0 1px}
+.output-control{min-width:0}
+.output-control>label{margin-bottom:8px}
+.output-format-control .segmented button{padding-left:10px;padding-right:10px}
+.output-method-control .segmented button{padding-left:9px;padding-right:9px}
+.output-destination{grid-column:auto;padding:0;border:0}
+.output-destination .picker{min-height:48px;padding:7px 10px;border-radius:13px;box-shadow:none;background:rgba(118,118,128,.045)}
+.output-destination .picker-icon{width:34px;height:34px;border-radius:10px}
+.output-destination .picker-body small,.output-destination .picker-body>span{display:none}
+.output-destination .picker strong{font-size:12px}
+.output-destination .change{font-size:11px;white-space:nowrap}
+.output-settings-card .settings-footer{grid-column:1/-1}
+@media(max-width:720px){.output-settings-card{grid-template-columns:minmax(120px,.7fr) minmax(190px,1fr) minmax(260px,1.4fr)}.output-destination .picker-icon{display:none}}
