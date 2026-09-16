@@ -20,10 +20,10 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import appIcon from "../src-tauri/icons/icon.png";
 import type { DataPreview, DroppedPathClassification, GenerateResult, GenerationProgress, Settings, TemplateInspection, CommonValues } from "./types";
 
 const APP_VERSION = "Ver.2.0.0";
+const APP_ICON_URL = "/app-icon.png";
 const DEFAULT_AMOUNT_INCLUDE_KEYWORDS = [
   "交付申請額",
   "交付決定額",
@@ -222,7 +222,7 @@ function HelpGuide({ onClose }: { onClose: () => void }) {
             {section === "about" && (
               <div className="help-section">
                 <h3>このアプリについて</h3>
-                <div className="about-card"><div className="about-symbol about-symbol-image"><img src={appIcon} alt="" /></div><div><strong>Wordファイル一括作成</strong><span>{APP_VERSION}</span></div></div>
+                <div className="about-card"><div className="about-symbol about-symbol-image"><img src={APP_ICON_URL} alt="" /></div><div><strong>Wordファイル一括作成</strong><span>{APP_VERSION}</span></div></div>
                 <div className="help-rule-list about-list">
                   <p><strong>制作者</strong><span>今井 啓登</span></p>
                   <p><strong>連絡先</strong><span><a href="mailto:ImaiK@mbox.pref.osaka.lg.jp">ImaiK@mbox.pref.osaka.lg.jp</a></span></p>
@@ -627,7 +627,7 @@ export default function App() {
       {dropNotice && <div className="drop-toast"><Check size={15} />{dropNotice}</div>}
       <header>
         <div className="brand-block">
-          <div className="app-symbol app-symbol-image" aria-hidden="true"><img src={appIcon} alt="" /></div>
+          <div className="app-symbol app-symbol-image" aria-hidden="true"><img src={APP_ICON_URL} alt="" /></div>
           <div>
             <span className="eyebrow">DOCUMENT AUTOMATION</span>
             <div className="title-row"><h1>Wordファイル一括作成</h1><span className="version-badge">{APP_VERSION}</span></div>
