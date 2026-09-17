@@ -443,8 +443,7 @@ UIは、`emilkowalski/skills`に含まれる次の設計ガイダンスを参考
 ## 制作者・問い合わせ先
 
 ```text
-制作者：今井 啓登
-連絡先：ImaiK@mbox.pref.osaka.lg.jp
+制作者：kei
 ```
 
 ## ライセンスと第三者通知
