@@ -15,7 +15,7 @@ a = Analysis(
     hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
-    runtime_hooks=[],
+    runtime_hooks=["sitecustomize.py"],
     excludes=["tkinter", "tkinterdnd2"],
     noarchive=False,
 )
