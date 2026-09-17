@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import type { DataPreview, DroppedPathClassification, GenerateResult, GenerationProgress, Settings, TemplateInspection, CommonValues } from "./types";
 
-const APP_VERSION = "Ver.1.3.1";
+const APP_VERSION = "Ver.1.4.0";
 const DEFAULT_AMOUNT_INCLUDE_KEYWORDS = [
   "交付申請額",
   "交付決定額",
