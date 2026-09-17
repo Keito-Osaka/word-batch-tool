@@ -18,7 +18,7 @@ a = Analysis(
     hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
-    runtime_hooks=[],
+    runtime_hooks=["sitecustomize.py"],
     excludes=["tkinter", "tkinterdnd2"],
     noarchive=False,
 )
@@ -35,8 +35,6 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    # 標準入出力によるTauriとのJSON通信を維持するためTrueにする。
-    # コンソール画面自体はRust側のCREATE_NO_WINDOWで非表示にする。
     console=True,
 )
 
