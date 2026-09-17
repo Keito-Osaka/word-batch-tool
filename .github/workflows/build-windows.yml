@@ -184,6 +184,65 @@ jobs:
               raise SystemExit("An unreplaced common placeholder remains.")
           '@ | Set-Content -Path (Join-Path $env:RUNNER_TEMP "verify-common-output.py") -Encoding UTF8
           python (Join-Path $env:RUNNER_TEMP "verify-common-output.py")
+
+          # Ver.1.4.0: verify font preservation across Japanese/ASCII replacements
+          $fontTemplate = Join-Path $env:RUNNER_TEMP "font-preserve-template.docx"
+          @'
+          from docx import Document
+          import os
+
+          path = os.environ["FONT_TEMPLATE_PATH"]
+          doc = Document()
+
+          p1 = doc.add_paragraph()
+          r1 = p1.add_run("{{金額}}")
+          r1.font.name = "ＭＳ 明朝"
+          r1._element.get_or_add_rPr().rFonts.set(__import__("docx").oxml.ns.qn("w:eastAsia"), "ＭＳ 明朝")
+          r1._element.get_or_add_rPr().rFonts.set(__import__("docx").oxml.ns.qn("w:ascii"), "ＭＳ 明朝")
+          r1._element.get_or_add_rPr().rFonts.set(__import__("docx").oxml.ns.qn("w:hAnsi"), "ＭＳ 明朝")
+
+          p2 = doc.add_paragraph()
+          r2 = p2.add_run("{{school}}")
+          r2.font.name = "Arial"
+          r2._element.get_or_add_rPr().rFonts.set(__import__("docx").oxml.ns.qn("w:eastAsia"), "Arial")
+          r2._element.get_or_add_rPr().rFonts.set(__import__("docx").oxml.ns.qn("w:ascii"), "Arial")
+          r2._element.get_or_add_rPr().rFonts.set(__import__("docx").oxml.ns.qn("w:hAnsi"), "Arial")
+
+          p3 = doc.add_paragraph()
+          r3 = p3.add_run("{{name}}")
+          r3.font.name = "Calibri"
+          r3._element.get_or_add_rPr().rFonts.set(__import__("docx").oxml.ns.qn("w:eastAsia"), "Calibri")
+          r3._element.get_or_add_rPr().rFonts.set(__import__("docx").oxml.ns.qn("w:ascii"), "Calibri")
+          r3._element.get_or_add_rPr().rFonts.set(__import__("docx").oxml.ns.qn("w:hAnsi"), "Calibri")
+
+          doc.save(path)
+          '@ | Set-Content -Path (Join-Path $env:RUNNER_TEMP "create-font-template.py") -Encoding UTF8
+
+          $env:FONT_TEMPLATE_PATH = $fontTemplate
+          python (Join-Path $env:RUNNER_TEMP "create-font-template.py")
+
+          $fontDataPath = Join-Path $env:RUNNER_TEMP "font-data.csv"
+          @'
+          金額,school,name
+          12345,abc,田中
+          '@ | Set-Content -Path $fontDataPath -Encoding UTF8
+
+          $fontGenerateRequest = @{
+            template_path = $fontTemplate
+            data_path = $fontDataPath
+            output_path = (Join-Path $env:RUNNER_TEMP "font-output")
+            filename_keys = @()
+            add_serial_number = $true
+            serial_digits = 2
+            format_amount_with_comma = $true
+            output_format = "word"
+            output_method = "folder"
+            common_values = @{}
+          } | ConvertTo-Json -Depth 5 -Compress
+
+          $fontGenerateOutput = $fontGenerateRequest | & "src-tauri/resources/backend/word-batch-backend.exe" generate
+          if ($LASTEXITCODE -ne 0) { throw "Font-preservation generation failed." }
+
       - name: Set up Node.js
         uses: actions/setup-node@v6
         with:
@@ -211,12 +270,13 @@ jobs:
           foreach ($item in $required) {
             if (-not (Test-Path $item)) { throw "Generated icon is missing: $item" }
           }
+
       - name: Build Tauri installer
         uses: tauri-apps/tauri-action@v0
       - name: Upload Windows installer
         uses: actions/upload-artifact@v7
         with:
-          name: WordBatchTool-Windows-v1.3.1
+          name: WordBatchTool-Windows-v1.4.0
           path: src-tauri/target/release/bundle/nsis/*.exe
           retention-days: 7
-          if-no-files-found: error
+          if-no-files-found: error      
