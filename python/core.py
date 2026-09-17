@@ -1,10 +1,10 @@
-
 import os
 import re
 import tempfile
 import zipfile
 import unicodedata
 import copy
+import warnings
 
 import pandas as pd
 from docx import Document
@@ -298,33 +298,75 @@ def prepare_dataframe(file_path, format_amount_with_comma=False, amount_include_
         return prepare_excel_dataframe(file_path, **kwargs)
     raise ValueError("対応していないファイル形式です。CSVまたはExcelファイルを指定してください。")
 
-
 # =====================================================
 # Word置換・フォント維持
 # =====================================================
-def get_run_preferred_font(run, default_font="ＭＳ 明朝"):
+_DEFAULT_FALLBACK_FONT = "ＭＳ 明朝"
+_FONT_FALLBACK_WARNED = set()
+
+def _script_for_char(char):
+    if not char:
+        return None
+    code = ord(char)
+    if 0x3040 <= code <= 0x30FF or 0x3400 <= code <= 0x4DBF or 0x4E00 <= code <= 0x9FFF:
+        return "eastAsia"
+    if 0xAC00 <= code <= 0xD7AF:
+        return "eastAsia"
+    if 0x0021 <= code <= 0x007E:
+        return "ascii"
+    return None
+
+
+def _lookup_font_value(run, attribute_name):
+    rPr = run._element.rPr
+    if rPr is None or rPr.rFonts is None:
+        return None
+    value = rPr.rFonts.get(qn(f"w:{attribute_name}"))
+    return value if value else None
+
+
+def _detect_run_font(run, preferred_script=None):
+    if run is None:
+        return None
+
     rPr = run._element.rPr
     if rPr is not None and rPr.rFonts is not None:
-        east_asia = rPr.rFonts.get(qn("w:eastAsia"))
-        ascii_font = rPr.rFonts.get(qn("w:ascii"))
-        hansi_font = rPr.rFonts.get(qn("w:hAnsi"))
-        if east_asia:
-            return east_asia
-        if ascii_font:
-            return ascii_font
-        if hansi_font:
-            return hansi_font
-    if run.font.name:
-        return run.font.name
-    return default_font
+        order = ("eastAsia", "ascii", "hAnsi", "cs")
+        if preferred_script == "eastAsia":
+            order = ("eastAsia", "ascii", "hAnsi", "cs")
+        elif preferred_script == "ascii":
+            order = ("ascii", "hAnsi", "eastAsia", "cs")
+        elif preferred_script == "hAnsi":
+            order = ("hAnsi", "ascii", "eastAsia", "cs")
+
+        for attribute_name in order:
+            value = _lookup_font_value(run, attribute_name)
+            if value:
+                return value
+
+    if getattr(run, "font", None) is not None and run.font.name:
+        font_name = run.font.name.strip()
+        if font_name:
+            return font_name
+
+    return None
+
+
+def get_run_preferred_font(run, default_font=_DEFAULT_FALLBACK_FONT, preferred_script=None):
+    font_name = _detect_run_font(run, preferred_script=preferred_script)
+    return font_name if font_name else default_font
 
 
 def set_run_font_all(run, font_name):
+    if not font_name:
+        return
+
     rPr = run._element.get_or_add_rPr()
     rFonts = rPr.rFonts
     if rFonts is None:
         rFonts = OxmlElement("w:rFonts")
         rPr.append(rFonts)
+
     rFonts.set(qn("w:eastAsia"), font_name)
     rFonts.set(qn("w:ascii"), font_name)
     rFonts.set(qn("w:hAnsi"), font_name)
@@ -341,12 +383,78 @@ def copy_run_format(source_run, target_run):
         target_run._element.insert(0, copy.deepcopy(source_rPr))
 
 
+def _find_placeholder_font(paragraph, start, end, char_to_run_index, original_text, field_name):
+    first_run_index = None
+    first_char = ""
+    delimiter_run_indexes = []
+
+    for pos in range(start, end):
+        run_index = char_to_run_index[pos]
+        ch = original_text[pos]
+        if ch in "{}<>":
+            if run_index not in delimiter_run_indexes:
+                delimiter_run_indexes.append(run_index)
+        elif first_run_index is None:
+            first_run_index = run_index
+            first_char = ch
+
+    # 1. 先頭文字のフォントを優先
+    if first_run_index is not None:
+        font_name = _detect_run_font(
+            paragraph.runs[first_run_index],
+            preferred_script=_script_for_char(first_char),
+        )
+        if font_name:
+            return font_name
+
+    # 2. {{ / }} または << / >> のフォントを次に見る
+    for run_index in delimiter_run_indexes:
+        font_name = _detect_run_font(paragraph.runs[run_index])
+        if font_name:
+            return font_name
+
+    # 3. 同じ段落の近い run を順に検索
+    run_count = len(paragraph.runs)
+    candidates = []
+
+    before_index = char_to_run_index[start - 1] if start > 0 else None
+    after_index = char_to_run_index[end] if end < len(char_to_run_index) else None
+
+    for run_index in (before_index, after_index):
+        if run_index is not None and run_index not in candidates:
+            candidates.append(run_index)
+
+    if first_run_index is not None:
+        for distance in range(1, run_count + 1):
+            for run_index in (first_run_index - distance, first_run_index + distance):
+                if 0 <= run_index < run_count and run_index not in candidates:
+                    candidates.append(run_index)
+
+    for run_index in candidates:
+        font_name = _detect_run_font(paragraph.runs[run_index])
+        if font_name:
+            return font_name
+
+    # 4. どこにも取得できなければ警告付きで ＭＳ 明朝 を使用
+    if field_name not in _FONT_FALLBACK_WARNED:
+        _FONT_FALLBACK_WARNED.add(field_name)
+        warnings.warn(
+            "一部フォント情報を取得できなかったため、ＭＳ明朝を使用しました。"
+            f" 対象: {field_name}",
+            RuntimeWarning,
+            stacklevel=3,
+        )
+    return _DEFAULT_FALLBACK_FONT
+
+
 def replace_text_in_paragraph(paragraph, replacements):
     if not paragraph.runs:
         return
+
     original_text = "".join(run.text for run in paragraph.runs)
     if not original_text:
         return
+
     char_to_run_index = []
     for run_index, run in enumerate(paragraph.runs):
         char_to_run_index.extend([run_index] * len(run.text))
@@ -356,16 +464,23 @@ def replace_text_in_paragraph(paragraph, replacements):
     common_replacements = getattr(paragraph, "_word_batch_common_replacements", None)
     if common_replacements:
         replacement_groups.append(("<<", ">>", common_replacements))
+
     for opener, closer, values in replacement_groups:
         for key, value in values.items():
             placeholder = f"{opener}{key}{closer}"
-            start = 0
+            cursor = 0
             while True:
-                pos = original_text.find(placeholder, start)
+                pos = original_text.find(placeholder, cursor)
                 if pos == -1:
                     break
-                matches.append({"start": pos, "end": pos + len(placeholder), "value": "" if value is None else str(value), "opener": opener, "closer": closer})
-                start = pos + len(placeholder)
+                matches.append({
+                    "start": pos,
+                    "end": pos + len(placeholder),
+                    "value": "" if value is None else str(value),
+                    "field_name": placeholder,
+                })
+                cursor = pos + len(placeholder)
+
     if not matches:
         return
 
@@ -378,54 +493,69 @@ def replace_text_in_paragraph(paragraph, replacements):
             last_end = m["end"]
     matches = filtered
 
-    segments = []
-    cursor = 0
-
     def add_original_segments(start, end):
+        nonlocal segments
         if start >= end:
             return
         segment_start = start
         while segment_start < end and segment_start < len(char_to_run_index):
             run_index = char_to_run_index[segment_start]
             segment_end = segment_start + 1
-            while segment_end < end and segment_end < len(char_to_run_index) and char_to_run_index[segment_end] == run_index:
+            while (
+                segment_end < end
+                and segment_end < len(char_to_run_index)
+                and char_to_run_index[segment_end] == run_index
+            ):
                 segment_end += 1
             text = original_text[segment_start:segment_end]
             if text:
-                segments.append({"text": text, "source_run_index": run_index, "is_replacement": False})
+                segments.append({
+                    "text": text,
+                    "source_run_index": run_index,
+                    "is_replacement": False,
+                    "font_name": None,
+                })
             segment_start = segment_end
 
-    def placeholder_source_run_index(start, end):
-        candidates = []
-        for i in range(start, min(end, len(char_to_run_index))):
-            run_index = char_to_run_index[i]
-            if original_text[i] not in "{}<>":
-                return run_index
-            candidates.append(run_index)
-        return candidates[0] if candidates else 0
-
+    segments = []
+    cursor = 0
     for m in matches:
         add_original_segments(cursor, m["start"])
-        segments.append({"text": m["value"], "source_run_index": placeholder_source_run_index(m["start"], m["end"]), "is_replacement": True})
+
+        font_name = _find_placeholder_font(
+            paragraph,
+            m["start"],
+            m["end"],
+            char_to_run_index,
+            original_text,
+            m["field_name"],
+        )
+
+        segments.append({
+            "text": m["value"],
+            "source_run_index": 0,
+            "is_replacement": True,
+            "font_name": font_name,
+        })
         cursor = m["end"]
+
     add_original_segments(cursor, len(original_text))
 
     existing_runs = list(paragraph.runs)
-    # Wordは日本語と英数字で別のフォント属性を参照するため、文字列を消去する前に
-    # 置換元runの優先フォントを保存する。特に「ＭＳ 明朝」のプレースホルダーへ
-    # 数字を入れた場合、ascii/hAnsiがテーマフォントのままだと游明朝へ変わることがある。
-    source_fonts = [get_run_preferred_font(run) for run in existing_runs]
     for run in existing_runs:
         run.text = ""
+
     for i, segment in enumerate(segments):
         target_run = existing_runs[i] if i < len(existing_runs) else paragraph.add_run()
-        source_index = segment["source_run_index"]
-        source_run = existing_runs[source_index]
-        copy_run_format(source_run, target_run)
+
         if segment["is_replacement"]:
-            # eastAsiaだけでなくascii・hAnsi・csにも同じフォントを明示し、
-            # 数字、カンマ、英字を含む置換値でもテンプレートの書体を維持する。
-            set_run_font_all(target_run, source_fonts[source_index])
+            source_run = existing_runs[0] if not existing_runs else existing_runs[0]
+            copy_run_format(source_run, target_run)
+            set_run_font_all(target_run, segment["font_name"])
+        else:
+            source_run = existing_runs[segment["source_run_index"]] if segment["source_run_index"] < len(existing_runs) else existing_runs[0]
+            copy_run_format(source_run, target_run)
+
         target_run.text = segment["text"]
 
 
@@ -433,46 +563,22 @@ def replace_text_in_table(table, replacements, common_replacements=None):
     for row in table.rows:
         for cell in row.cells:
             replace_text_in_document_part(cell, replacements, common_replacements)
+
+
 def replace_text_in_document_part(part, replacements, common_replacements=None):
     for paragraph in part.paragraphs:
         paragraph._word_batch_common_replacements = common_replacements or {}
         replace_text_in_paragraph(paragraph, replacements)
     for table in part.tables:
         replace_text_in_table(table, replacements, common_replacements)
+
+
 def replace_placeholders(doc, replacements, common_replacements=None):
     replace_text_in_document_part(doc, replacements, common_replacements)
     for section in doc.sections:
         replace_text_in_document_part(section.header, replacements, common_replacements)
         replace_text_in_document_part(section.footer, replacements, common_replacements)
 
-def iter_document_text(doc):
-    def walk(part):
-        for paragraph in part.paragraphs:
-            yield "".join(run.text for run in paragraph.runs)
-        for table in part.tables:
-            for row in table.rows:
-                for cell in row.cells:
-                    yield from walk(cell)
-    yield from walk(doc)
-    for section in doc.sections:
-        yield from walk(section.header)
-        yield from walk(section.footer)
-
-def inspect_template_placeholders(template_path):
-    doc = Document(template_path)
-    text = "\n".join(iter_document_text(doc))
-    row_fields = sorted(set(re.findall(r"\{\{([^{}\r\n]+)\}\}", text)))
-    common_fields = sorted(set(re.findall(r"<<([^<>\r\n]+)>>", text)))
-    malformed = []
-    for line in text.splitlines():
-        if ("<<" in line or ">>" in line) and not re.search(r"<<[^<>\r\n]+>>", line):
-            malformed.append(line.strip()[:120])
-    return {
-        "row_fields": row_fields,
-        "common_fields": common_fields,
-        "conflicting_fields": sorted(set(row_fields) & set(common_fields)),
-        "malformed_common_placeholders": sorted(set(x for x in malformed if x)),
-    }
 # =====================================================
 # ファイル名生成
 # =====================================================
