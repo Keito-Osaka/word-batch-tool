@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Wordファイル一括作成",
-  "version": "1.4.0",
+  "version": "2.1.0",
   "identifier": "jp.local.wordbatchtool",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -20,23 +20,15 @@
         "center": true
       }
     ],
-    "security": {
-      "csp": null
-    }
+    "security": { "csp": null }
   },
   "bundle": {
     "active": true,
-    "targets": [
-      "nsis"
-    ],
-    "resources": {
-      "resources/backend/": "backend/"
-    },
+    "targets": ["nsis"],
+    "resources": { "resources/backend/": "backend/" },
     "windows": {
       "nsis": {
-        "languages": [
-          "Japanese"
-        ],
+        "languages": ["Japanese"],
         "displayLanguageSelector": false,
         "installerIcon": "icons/icon.ico",
         "installMode": "currentUser"

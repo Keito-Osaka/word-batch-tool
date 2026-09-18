@@ -6,7 +6,8 @@ export type ExcludeMode =
   | "any_empty"
   | "all_empty_except_first"
   | "selected_columns_all_empty"
-  | "selected_columns_any_empty";
+  | "selected_columns_any_empty"
+  | "selected_column_number_empty";
 
 export interface Settings {
   outputFormat: OutputFormat;
