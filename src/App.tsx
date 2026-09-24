@@ -877,9 +877,7 @@ export default function App() {
                     <label className="check"><input type="checkbox" checked={settings.formatAmountWithComma} onChange={(e) => setSettings((current) => ({ ...current, formatAmountWithComma: e.target.checked }))} /> 数値をカンマ区切りにする</label>
                     <div className={`amount-keyword-editor ${settings.formatAmountWithComma ? "" : "disabled"}`}>
                       <div className="amount-keyword-heading"><div><strong>対象キーワード</strong><small>列名に含まれる語句を登録します</small></div><button type="button" disabled={!settings.formatAmountWithComma} onClick={resetAmountKeywords}>初期値に戻す</button></div>
-                      <div className="keyword-tags" aria-label="登録済みの対象キーワード">
-                        {settings.amountIncludeKeywords.length === 0 ? <span className="keyword-empty">キーワードは登録されていません</span> : settings.amountIncludeKeywords.map((keyword) => (<span key={keyword} className="keyword-tag">{keyword}<button type="button" disabled={!settings.formatAmountWithComma} onClick={() => removeAmountKeyword(keyword)} aria-label={`${keyword}を削除`}>×</button></span>))}
-                      </div>
+                      <div className="keyword-tags" aria-label="登録済みの対象キーワード">{settings.amountIncludeKeywords.length === 0 ? <span className="keyword-empty">キーワードは登録されていません</span> : settings.amountIncludeKeywords.map((keyword) => (<span key={keyword} className="keyword-tag">{keyword}<button type="button" disabled={!settings.formatAmountWithComma} onClick={() => removeAmountKeyword(keyword)} aria-label={`${keyword}を削除`}>×</button></span>))}</div>
                       <div className="keyword-add-row"><input type="text" disabled={!settings.formatAmountWithComma} value={amountKeywordInput} onChange={(e) => setAmountKeywordInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addAmountKeyword(); } }} placeholder="例：支給額" /><button type="button" disabled={!settings.formatAmountWithComma || !amountKeywordInput.trim()} onClick={addAmountKeyword}>追加</button></div>
                     </div>
                   </section>
