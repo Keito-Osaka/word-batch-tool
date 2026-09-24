@@ -160,14 +160,10 @@ function HelpGuide({ onClose }: { onClose: () => void }) {
               <div className="help-section">
                 <h3>テンプレートの作り方</h3>
                 <p>行ごとに異なる値は、項目名を半角の二重波括弧 <code>{`{{項目名}}`}</code> で囲みます。括弧内の文字は、置換データの列名と完全に一致させてください。</p>
-                <div className="help-example"><small>行ごとに異なる項目の例</small><code>学校名：{`{{学校名}}`}<br />氏名：{`{{氏名}}`}<br />交付決定額：金{`{{交付決定額}}`}</code></div>
+                <div className="help-example"><small>行ごとに異なる項目の例</small><code>学校名：{`{{学校名}}`}<br />氏名：{`{{氏名}}`}<br />交付決定額：{`{{交付決定額}}`}</code></div>
+                <p className="help-common-intro">通知日などの全文書で共通する項目は、項目名を半角の <code>&lt;&lt;</code> と <code>&gt;&gt;</code> で囲み、<code>&lt;&lt;項目名&gt;&gt;</code> の形式で入力します。テンプレートを読み込むと共通項目が自動検出されるため、メイン画面の「共通項目を入力」から値を設定してください。</p>
                 <div className="help-example help-example-common"><small>全文書で共通する項目の例</small><code>通知日：{`<<通知日>>`}<br />回答期限：{`<<回答期限>>`}<br />担当者：{`<<担当者名>>`}</code></div>
-                <div className="help-rule-list">
-                  <p><strong>使用できる形式</strong><span>.docx</span></p>
-                  <p><strong>正しい書き方</strong><span><code>{`{{学校名}}`}</code></span></p>
-                  <p><strong>避ける書き方</strong><span><code>{`{{ 学校名 }}`}</code></span></p>
-                </div>
-                <div className="help-note"><strong>全文書で共通する項目</strong><p>通知日や回答期限など、すべての文書で同じ値を使う部分は、項目名を半角の <code>&lt;&lt;</code> と <code>&gt;&gt;</code> で囲み、<code>&lt;&lt;項目名&gt;&gt;</code> の形式で入力します。テンプレートを読み込むと共通項目が自動検出されるため、メイン画面の「共通項目を入力」から値を設定してください。</p></div>
+                <div className="help-rule-list"><p><strong>使用できる形式</strong><span>.docx</span></p><p><strong>正しい書き方</strong><span><code>{`{{学校名}}`}</code><br /><code>{`<<通知日>>`}</code></span></p><p><strong>避ける書き方</strong><span><code>{`{{ 学校名 }}`}</code><br /><code>{`<< 通知日 >>`}</code></span></p></div>
                 <div className="help-note"><strong>書式を維持するために</strong><p>プレースホルダー全体を同じ文字サイズ・フォント・装飾にしてください。</p></div>
               </div>
             )}
@@ -645,15 +641,7 @@ export default function App() {
 
   return (
     <div className={dark ? "app dark" : "app"}>
-      {dragActive && (
-        <div className="native-drop-overlay" aria-live="polite">
-          <div className="native-drop-panel">
-            <span className="drop-symbol"><FileSpreadsheet size={28} /></span>
-            <strong>ここにファイルをドロップ</strong>
-            <small>テンプレート、置換データ、出力先を<br />まとめて選択できます</small>
-          </div>
-        </div>
-      )}
+      {dragActive && <div className="native-drop-overlay" aria-live="polite"><div className="native-drop-panel"><span className="drop-symbol"><FileSpreadsheet size={28} /></span><strong>ここにファイルをドロップ</strong><small>テンプレート、置換データ、出力先を<br />まとめて選択できます</small></div></div>}
       {dropNotice && <div className="drop-toast"><Check size={15} />{dropNotice}</div>}
       <header>
         <div className="brand-block">
@@ -871,17 +859,7 @@ export default function App() {
                   {settings.rowExcludeMode.startsWith("selected_columns") && <><div className="setting-subhead"><strong>除外判定に使用する列</strong><small>{settings.rowExcludeMode === "selected_columns_any_empty" ? "どれか1つでも空欄なら除外" : "すべて空欄なら除外"}</small></div>{!preview ? <p className="muted-box">置換データを読み込むと列を選択できます。</p> : <div className="column-choice-list">{preview.columns.map(column => <label key={column} className={settings.rowExcludeColumns.includes(column) ? "selected" : ""}><input type="checkbox" checked={settings.rowExcludeColumns.includes(column)} onChange={()=>setSettings(c=>({ ...c, rowExcludeColumns: c.rowExcludeColumns.includes(column) ? c.rowExcludeColumns.filter(item=>item!==column) : [...c.rowExcludeColumns, column] }))} />{column}</label>)}</div>}</>}
                   <div className="setting-summary"><strong>現在の除外条件</strong><span>{settings.excludeExampleRows ? "記入例を除外" : "記入例も使用"} / {settings.rowExcludeMode === "none" ? "除外なし" : settings.rowExcludeMode}</span></div>
                 </section>}
-                {settingsSection === "numeric" && (
-                  <section className="setting-panel">
-                    <h3>数値の整形</h3>
-                    <label className="check"><input type="checkbox" checked={settings.formatAmountWithComma} onChange={(e) => setSettings((current) => ({ ...current, formatAmountWithComma: e.target.checked }))} /> 数値をカンマ区切りにする</label>
-                    <div className={`amount-keyword-editor ${settings.formatAmountWithComma ? "" : "disabled"}`}>
-                      <div className="amount-keyword-heading"><div><strong>対象キーワード</strong><small>列名に含まれる語句を登録します</small></div><button type="button" disabled={!settings.formatAmountWithComma} onClick={resetAmountKeywords}>初期値に戻す</button></div>
-                      <div className="keyword-tags" aria-label="登録済みの対象キーワード">{settings.amountIncludeKeywords.length === 0 ? <span className="keyword-empty">キーワードは登録されていません</span> : settings.amountIncludeKeywords.map((keyword) => (<span key={keyword} className="keyword-tag">{keyword}<button type="button" disabled={!settings.formatAmountWithComma} onClick={() => removeAmountKeyword(keyword)} aria-label={`${keyword}を削除`}>×</button></span>))}</div>
-                      <div className="keyword-add-row"><input type="text" disabled={!settings.formatAmountWithComma} value={amountKeywordInput} onChange={(e) => setAmountKeywordInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addAmountKeyword(); } }} placeholder="例：支給額" /><button type="button" disabled={!settings.formatAmountWithComma || !amountKeywordInput.trim()} onClick={addAmountKeyword}>追加</button></div>
-                    </div>
-                  </section>
-                )}
+                {settingsSection === "numeric" && <section className="setting-panel"><h3>数値の整形</h3><label className="check"><input type="checkbox" checked={settings.formatAmountWithComma} onChange={(e)=>setSettings(c=>({...c,formatAmountWithComma:e.target.checked}))} /> 数値をカンマ区切りにする</label><div className="amount-keyword-editor"><div className="amount-keyword-heading"><strong>対象キーワード</strong><button onClick={resetAmountKeywords}>初期化</button></div>{settings.amountIncludeKeywords.map(keyword => <span key={keyword} className="keyword-tag">{keyword}<button onClick={() => removeAmountKeyword(keyword)} aria-label={`${keyword}を削除`}>×</button></span>)}<div className="keyword-add-row"><input value={amountKeywordInput} onChange={(e)=>setAmountKeywordInput(e.target.value)} placeholder="例: 支給額" /><button onClick={addAmountKeyword}>追加</button></div></div></section>}
                 {settingsSection === "pdf" && <section className="setting-panel"><h3>PDF</h3><label className="check"><input type="checkbox" checked={settings.fastPdfSplitEnabled} onChange={(e)=>setSettings(c=>({...c,fastPdfSplitEnabled:e.target.checked}))} /> PDF個別出力時に高速分割を使用する</label></section>}
               </div>
             </div>
