@@ -15,7 +15,7 @@
         "title": "Wordファイル一括作成",
         "width": 1040,
         "height": 820,
-        "minWidth": 820,
+        "minWidth": 1040,
         "minHeight": 680,
         "center": true
       }
