@@ -1,6 +1,6 @@
 [package]
 name = "word-batch-tool"
-version = "1.4.0"
+version = "2.1.0"
 description = "Wordファイル一括作成ツール"
 authors = ["Word Batch Tool Project"]
 edition = "2021"

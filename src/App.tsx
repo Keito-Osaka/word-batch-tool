@@ -21,8 +21,9 @@ import {
   X,
 } from "lucide-react";
 import type { DataPreview, DroppedPathClassification, GenerateResult, GenerationProgress, Settings, TemplateInspection, CommonValues } from "./types";
+import appIconUrl from "../src-tauri/icons/icon.png";
 
-const APP_VERSION = "Ver.1.4.0";
+const APP_VERSION = "Ver.2.1.0";
 const DEFAULT_AMOUNT_INCLUDE_KEYWORDS = [
   "交付申請額",
   "交付決定額",
@@ -160,14 +161,14 @@ function HelpGuide({ onClose }: { onClose: () => void }) {
               <div className="help-section">
                 <h3>テンプレートの作り方</h3>
                 <p>Word内の置換したい部分を、半角の二重波括弧で囲みます。括弧内の文字は、置換データの列名と完全に一致させてください。</p>
-                <div className="help-example"><small>テンプレートの例</small><code>学校名：{`{{学校名}}`}<br />氏名：{`{{氏名}}`}<br />交付決定額：金{`{{交付決定額}}`}円</code></div>
+                <div className="help-example"><small>テンプレートの例</small><code>学校名：{`{{学校名}}`}<br />氏名：{`{{氏名}}`}<br />交付決定額：金{`{{交付決定額}}`}</code></div>
                 <div className="help-rule-list">
                   <p><strong>使用できる形式</strong><span>.docx</span></p>
                   <p><strong>正しい書き方</strong><span><code>{`{{学校名}}`}</code></span></p>
                   <p><strong>避ける書き方</strong><span><code>{`{{ 学校名 }}`}</code></span></p>
                 </div>
-                <div className="help-note"><strong>全文書で共通する項目</strong><p>通知日や回答期限など、すべての文書で同じ値を使う部分は、半角の&lt;&lt;項目名&gt;&gt;で囲みます。例：&lt;&lt;通知日&gt;&gt;</p></div>
-                <div className="help-note"><strong>書式を維持するために</strong><p>プレースホルダー全体を同じ文字サイズ・フォント・装飾にしてください。同じ項目はWord内で複数回使用できます。</p></div>
+                <div className="help-note"><strong>全文書で共通する項目</strong><p>通知日や回答期限など、すべての文書で同じ値を使う部分は、半角の&lt;&lt;項目名&gt;&gt;で入力できます。</p></div>
+                <div className="help-note"><strong>書式を維持するために</strong><p>プレースホルダー全体を同じ文字サイズ・フォント・装飾にしてください。</p></div>
               </div>
             )}
 
@@ -199,8 +200,8 @@ function HelpGuide({ onClose }: { onClose: () => void }) {
                   <p><strong>結合・ZIP名</strong><span>テンプレート名_件数件一式</span></p>
                   <p><strong>同名ファイル</strong><span>上書きせず、末尾に番号を付加</span></p>
                 </div>
-                <div className="help-note"><strong>ファイル名の識別</strong><p>初期状態では通し番号が付きます。通し番号を付けない場合は、ファイル名に使用する列を1つ以上選択してください。</p></div>
-                <div className="help-note"><strong>数値のカンマ区切り</strong><p>登録したキーワードを列名に含む列の値を、カンマ区切り形式へ整形します。対象キーワードは「ファイル名と詳細設定」の金額欄で追加・削除できます。</p></div>
+                <div className="help-note"><strong>ファイル名の識別</strong><p>初期状態では通し番号が付きます。通し番号を付けない場合は、ファイル名に使う列を1つ以上選択します。</p></div>
+                <div className="help-note"><strong>数値のカンマ区切り</strong><p>登録したキーワードを列名に含む列の値を、カンマ区切り形式へ整形します。</p></div>
                 <div className="help-note"><strong>PDF出力</strong><p>PDF作成には、デスクトップ版Microsoft Wordが必要です。</p></div>
               </div>
             )}
@@ -209,6 +210,18 @@ function HelpGuide({ onClose }: { onClose: () => void }) {
               <div className="help-section">
                 <h3>更新履歴</h3>
                 <article className="release-card">
+                  <div>
+                    <strong>Ver.2.1.0</strong>
+                    <span>UIレイアウトとアイコン更新</span>
+                  </div>
+                  <ul>
+                    <li>アプリアイコンを画像ベースに変更し、ヘッダーとアプリ情報で統一</li>
+                    <li>テンプレートと置換データの入力を固定2列レイアウトへ整理</li>
+                    <li>未読込時にもガイド文を表示してレイアウト崩れを防止</li>
+                    <li>出力設定を出力形式・出力方法・出力先の一体フォームへ統合</li>
+                  </ul>
+                </article>
+                <article className="release-card release-card-previous">
                   <div>
                     <strong>Ver.1.4.0</strong>
                     <span>置換時のフォント維持を改善</span>
@@ -219,27 +232,19 @@ function HelpGuide({ onClose }: { onClose: () => void }) {
                     <li>最終的に取得できない場合は ＭＳ 明朝 へフォールバック</li>
                   </ul>
                 </article>
-                <article className="release-card release-card-previous">
-                  <div>
-                    <strong>Ver.1.3.1</strong>
-                    <span>数値置換時のフォント修正</span>
-                  </div>
-                  <ul>
-                    <li>行別項目と共通項目の数値置換時にテンプレートのフォントを維持</li>
-                  </ul>
-                </article>
-                <article className="release-card release-card-previous"><div><strong>Ver.1.3.0</strong><span>共通項目の置換</span></div><ul><li>&lt;&lt;項目名&gt;&gt;による全文書共通の置換に対応</li><li>テンプレートから共通項目を自動検出</li><li>共通項目の入力・確認画面と未入力チェックを追加</li></ul></article>
-                <article className="release-card release-card-previous"><div><strong>Ver.1.2.0</strong><span>設定とデータ除外の改善</span></div><ul><li>詳細設定を中央モーダルへ変更</li><li>記入例行の除外を選択可能に変更</li><li>除外なし、複数列のAND・OR条件を追加</li><li>除外理由と条件概要の表示を改善</li><li>数値のカンマ区切りとして名称と説明を整理</li></ul></article>
-                <article className="release-card release-card-previous"><div><strong>Ver.1.1.0</strong><span>操作性・互換性の改善</span></div><ul><li>数字を含む置換値でもテンプレートのフォントを維持するよう修正</li><li>初回セットアップと文書処理をバックグラウンド化し、画面の応答性を改善</li><li>初回セットアップの所要時間案内を改善</li><li>準備中もテンプレート、置換データ、出力先を選択可能に変更</li><li>準備中に選択したファイルを、完了後に自動確認する機能を追加</li></ul></article>
-                <article className="release-card release-card-previous"><div><strong>Ver.1.0.0</strong><span>初回正式版</span></div><ul><li>Word・PDFの個別、結合、ZIP出力に対応</li><li>Excel・CSV、ドラッグ＆ドロップ、進捗表示に対応</li><li>ファイル名設定、データ確認、ライト・ダークテーマを実装</li><li>金額列の3桁区切りと対象キーワード編集に対応</li></ul></article>
-                <p className="help-footnote">更新履歴はVer.1.0.0以降を掲載します。</p>  
+                <article className="release-card release-card-previous"><div><strong>Ver.1.3.1</strong><span>数値置換時のフォント修正</span></div><ul><li>行別項目と共通項目の数値置換時にテンプレートのフォントを維持</li></ul></article>
+                <article className="release-card release-card-previous"><div><strong>Ver.1.3.0</strong><span>共通項目の置換</span></div><ul><li>&lt;&lt;項目名&gt;&gt;による全文書共通項目をサポート</li></ul></article>
+                <article className="release-card release-card-previous"><div><strong>Ver.1.2.0</strong><span>設定とデータ除外の改善</span></div><ul><li>詳細設定を中央モーダルへ変更し、カテゴリ別に整理</li></ul></article>
+                <article className="release-card release-card-previous"><div><strong>Ver.1.1.0</strong><span>操作性・互換性の改善</span></div><ul><li>数字を含む置換値でもテンプレートのフォントを維持</li></ul></article>
+                <article className="release-card release-card-previous"><div><strong>Ver.1.0.0</strong><span>初回正式版</span></div><ul><li>Word・PDFの個別、結合、ZIP出力に対応</li></ul></article>
+                <p className="help-footnote">更新履歴はVer.1.0.0以降を掲載します。</p>
               </div>
-            )}  
+            )}
 
             {section === "about" && (
               <div className="help-section">
                 <h3>このアプリについて</h3>
-                <div className="about-card"><div className="about-symbol"><FileText size={24} /></div><div><strong>Wordファイル一括作成</strong><span>{APP_VERSION}</span></div></div>
+                <div className="about-card"><div className="about-symbol"><img src={appIconUrl} alt="" /></div><div><strong>Wordファイル一括作成</strong><span>{APP_VERSION}</span></div></div>
                 <div className="help-rule-list about-list">
                   <p><strong>制作者</strong><span>今井 啓登</span></p>
                   <p><strong>連絡先</strong><span><a href="mailto:ImaiK@mbox.pref.osaka.lg.jp">ImaiK@mbox.pref.osaka.lg.jp</a></span></p>
@@ -404,7 +409,7 @@ export default function App() {
   const missingCommonFields = commonFields.filter((name) => !commonValues[name]?.trim());
   const commonCompletedCount = commonFields.length - missingCommonFields.length;
   const canRun = Boolean(
-    templatePath && dataPath && outputPath && preview?.included_count && !busy && warmupState === "ready" && templateWarmupState !== "running" && missingCommonFields.length === 0 && (!(settings.rowExcludeMode.startsWith("selected_columns")) || settings.rowExcludeColumns.length > 0) && (settings.addSerialNumber || settings.filenameKeys.length > 0),
+    templatePath && dataPath && outputPath && preview?.included_count && !busy && warmupState === "ready" && templateWarmupState !== "running" && missingCommonFields.length === 0 && (!(settings.rowExcludeMode.startsWith("selected_columns") && settings.rowExcludeColumns.length === 0))
   );
   const hasWork = Boolean(templatePath || dataPath || outputPath || preview || result || error);
 
@@ -640,11 +645,19 @@ export default function App() {
 
   return (
     <div className={dark ? "app dark" : "app"}>
-      {dragActive && <div className="native-drop-overlay" aria-live="polite"><div className="native-drop-panel"><span className="drop-symbol"><FileSpreadsheet size={28} /></span><strong>ここにドロップして選択</strong><p>Word、Excel・CSV、または出力先フォルダを自動で判別します。</p><div><span>Word</span><span>Excel / CSV</span><span>フォルダ</span></div></div></div>}
+      {dragActive && (
+        <div className="native-drop-overlay" aria-live="polite">
+          <div className="native-drop-panel">
+            <span className="drop-symbol"><FileSpreadsheet size={28} /></span>
+            <strong>ここにファイルをドロップ</strong>
+            <small>テンプレート、置換データ、出力先を<br />まとめて選択できます</small>
+          </div>
+        </div>
+      )}
       {dropNotice && <div className="drop-toast"><Check size={15} />{dropNotice}</div>}
       <header>
         <div className="brand-block">
-          <div className="app-symbol" aria-hidden="true"><FileText size={19} /></div>
+          <div className="app-symbol" aria-hidden="true"><img src={appIconUrl} alt="" className="app-symbol-image" /></div>
           <div>
             <span className="eyebrow">DOCUMENT AUTOMATION</span>
             <div className="title-row"><h1>Wordファイル一括作成</h1><span className="version-badge">{APP_VERSION}</span></div>
@@ -673,60 +686,81 @@ export default function App() {
         {warmupState === "error" && (
           <section className="error" role="alert"><strong>文書処理を準備できませんでした</strong><p>{warmupError}</p></section>
         )}
+
         <section className="picker-grid">
-          <Picker kind="word" title="テンプレート" path={templatePath} disabled={busy} meta={templateWarmupState === "queued" ? "セットアップ完了後に確認します" : templateWarmupState === "running" ? "テンプレートを確認しています…" : templateWarmupState === "ready" ? "読み込みが完了しました" : undefined} onPick={chooseTemplate} />
-          <Picker
-            kind="excel"
-            title="置換データ"
-            path={dataPath}
-            disabled={busy}
-            meta={dataLoadState === "queued" ? "セットアップ完了後に確認します" : dataLoadState === "running" ? "置換データを確認しています…" : dataLoadState === "ready" ? "読み込みが完了しました" : undefined}
-            onPick={chooseData}
-          />
+          <section className="input-group">
+            <div className="group-heading"><span>1</span><h2>テンプレート</h2></div>
+            <Picker kind="word" title="テンプレート" path={templatePath} disabled={busy} meta={templateWarmupState === "queued" ? "セットアップ完了後に確認します" : templateWarmupState === "running" ? "テンプレートを確認しています…" : templateWarmupState === "ready" ? "読み込みが完了しました" : undefined} onPick={chooseTemplate} />
+            {commonFields.length > 0 ? (
+              <button className={`common-card ${missingCommonFields.length ? "incomplete" : "complete"}`} onClick={() => { setCommonDraft({ ...commonValues }); setCommonOpen(true); }} disabled={busy}>
+                <span className="common-card-symbol">&lt;&lt;&gt;&gt;</span>
+                <span><strong>共通項目を入力</strong><small>{missingCommonFields.length ? `${commonFields.length}項目のうち${commonFields.length - missingCommonFields.length}項目が入力済み` : `${commonFields.length}項目を入力済み`}</small></span>
+                <span className="common-card-state">{missingCommonFields.length ? `${missingCommonFields.length}件未入力` : "OK"}</span>
+              </button>
+            ) : (
+              <div className="status-card" aria-live="polite">
+                <span className="status-card-icon"><FileText size={18} /></span>
+                <div>
+                  <strong>共通項目</strong>
+                  <small>読込後に共通項目を設定できます</small>
+                </div>
+              </div>
+            )}
+          </section>
+
+          <section className="input-group">
+            <div className="group-heading"><span>2</span><h2>置換データ</h2></div>
+            <Picker kind="excel" title="置換データ" path={dataPath} disabled={busy} meta={dataLoadState === "queued" ? "セットアップ完了後に確認します" : dataLoadState === "running" ? "置換データを確認しています…" : dataLoadState === "ready" ? "読み込みが完了しました" : undefined} onPick={chooseData} />
+            {preview ? (
+              <button className="preview-link" onClick={() => { setPreviewTab("included"); setPreviewOpen(true); }}>
+                <span>
+                  <strong>置換データを確認</strong>
+                  <small>読込{preview.original_count}件、使用{preview.included_count}件、除外{preview.excluded_count}件</small>
+                </span>
+                <ChevronRight size={18} />
+              </button>
+            ) : (
+              <div className="status-card" aria-live="polite">
+                <span className="status-card-icon"><FileSpreadsheet size={18} /></span>
+                <div>
+                  <strong>置換データを確認</strong>
+                  <small>読込後に置換データを確認できます</small>
+                </div>
+              </div>
+            )}
+          </section>
         </section>
 
-        {commonFields.length > 0 && (
-          <button className={`common-card ${missingCommonFields.length ? "incomplete" : "complete"}`} onClick={() => { setCommonDraft({ ...commonValues }); setCommonOpen(true); }} disabled={busy}>
-            <span className="common-card-symbol">&lt;&lt;&gt;&gt;</span><span><strong>共通項目を入力</strong><small>{missingCommonFields.length ? `${commonFields.length}項目のうち${missingCommonFields.length}項目が未入力です` : `${commonFields.length}項目すべて入力済みです`}</small></span><em>{commonCompletedCount}/{commonFields.length}</em><ChevronRight size={18}/>
-          </button>
-        )}
-        {templateInspection?.conflicting_fields?.length ? <section className="template-warning"><strong>同じ名前が行別項目と共通項目にあります</strong><p>{templateInspection.conflicting_fields.join("、")}。記号の指定が正しいか確認してください。</p></section> : null}
-        {preview && (
-          <button className="preview-link" onClick={() => { setPreviewTab("included"); setPreviewOpen(true); }}>
-            <span>
-              <strong>置換データを確認</strong>
-              <small>読込{preview.original_count}件、使用{preview.included_count}件、除外{preview.excluded_count}件</small>
-            </span>
-            <ChevronRight size={18} />
-          </button>
-        )}
-
-        <Picker kind="folder" title="出力先" path={outputPath} disabled={busy} onPick={chooseOutput} />
-
-        <section className="options-card">
-          <div>
-            <label>出力形式</label>
-            <Segmented
-              value={settings.outputFormat}
-              onChange={(value) => setSettings((current) => ({ ...current, outputFormat: value }))}
-              items={[{ value: "word", label: "Word" }, { value: "pdf", label: "PDF" }]}
-            />
-            
+        <section className="output-card">
+          <div className="group-heading output-heading"><span>3</span><h2>出力設定</h2></div>
+          <div className="output-grid">
+            <div className="output-field">
+              <label>出力形式</label>
+              <Segmented
+                value={settings.outputFormat}
+                onChange={(value) => setSettings((current) => ({ ...current, outputFormat: value }))}
+                items={[{ value: "word", label: "Word" }, { value: "pdf", label: "PDF" }]}
+              />
+            </div>
+            <div className="output-field">
+              <label>出力方法</label>
+              <Segmented
+                value={settings.outputMethod}
+                onChange={(value) => setSettings((current) => ({ ...current, outputMethod: value }))}
+                items={[
+                  { value: "folder", label: "個別" },
+                  { value: "merged", label: "結合" },
+                  { value: "zip", label: "ZIP" },
+                ]}
+              />
+            </div>
+            <div className="output-field output-path-field">
+              <label>出力先</label>
+              <Picker kind="folder" title="出力先" path={outputPath} disabled={busy} onPick={chooseOutput} />
+            </div>
           </div>
-          <div>
-            <label>出力方法</label>
-            <Segmented
-              value={settings.outputMethod}
-              onChange={(value) => setSettings((current) => ({ ...current, outputMethod: value }))}
-              items={[
-                { value: "folder", label: "個別" },
-                { value: "merged", label: "結合" },
-                { value: "zip", label: "ZIP" },
-              ]}
-            />
-            
-          </div>
-          <div className="settings-footer">
+
+          <div className="output-footer">
             <div className="filename-inline" title={templatePath ? exampleName : undefined}>
               <small>出力ファイル名の例</small>
               <code>{templatePath ? exampleName : "テンプレート選択後に表示します"}</code>
@@ -737,11 +771,13 @@ export default function App() {
           </div>
         </section>
 
+        {templateInspection?.conflicting_fields?.length ? <section className="template-warning"><strong>同じ名前が行別項目と共通項目にあります</strong><p>{templateInspection.conflicting_fields.join("、")}</p></section> : null}
+
         {busy && progress && (
           <section className="progress-card" aria-live="polite">
-            <div className="progress-heading"><div><strong>{progress.label}</strong><p>{progress.detail || "処理が完了するまで、この画面を閉じずにお待ちください。"}</p></div><span>{progress.percent == null ? "処理中" : `${progress.percent}%`}</span></div>
+            <div className="progress-heading"><div><strong>{progress.label}</strong><p>{progress.detail || "処理が完了するまで、この画面を閉じずにお待ちください。"}</p></div><span className="progress-percent">{progress.percent ?? 0}%</span></div>
             <div className={progress.percent == null ? "progress-track indeterminate" : "progress-track"}><span style={progress.percent == null ? undefined : { width: `${progress.percent}%` }} /></div>
-            <div className="progress-meta"><span>{progress.current > 0 && progress.total > 0 ? `${progress.current} / ${progress.total}件` : "処理を準備中"}</span><span>{progress.stage === "fallback" ? "通常方式へ切替" : ""}</span></div>
+            <div className="progress-meta"><span>{progress.current > 0 && progress.total > 0 ? `${progress.current} / ${progress.total}件` : "処理を準備中"}</span><span>{progress.stage === "complete" ? "完了" : progress.stage === "error" ? "エラー" : "実行中"}</span></div>
             <div className="stage-list">
               {[
                 ["prepare", "データ準備"],
@@ -781,7 +817,7 @@ export default function App() {
         ) : (
           <section className="runbar">
             <div>
-              <span><strong>{preview?.included_count || 0}件</strong>の{settings.outputFormat === "pdf" ? "PDF" : "Word"}を{settings.outputMethod === "folder" ? "個別作成" : settings.outputMethod === "merged" ? "結合して作成" : "ZIPにまとめて作成"}します</span>
+              <span><strong>{preview?.included_count || 0}件</strong>の{settings.outputFormat === "pdf" ? "PDF" : "Word"}を{settings.outputMethod === "folder" ? "個別作成" : settings.outputMethod === "merged" ? "結合作成" : "ZIP化"}</span>
               <small>{warmupState === "running" ? (isFirstSetup ? "初回セットアップ中です" : "文書処理を準備しています") : status}</small>
             </div>
             <div className="run-actions">
@@ -799,16 +835,16 @@ export default function App() {
       {commonOpen && (
         <div className="overlay center-overlay" onMouseDown={() => setCommonOpen(false)}>
           <section className="common-modal" role="dialog" aria-modal="true" aria-labelledby="common-title" onMouseDown={(event)=>event.stopPropagation()}>
-            <div className="drawer-head"><div><h2 id="common-title">共通項目の入力</h2><p>&lt;&lt;項目名&gt;&gt;へ、すべての文書で共通する文字を挿入します。</p></div><button className="icon-button" onClick={()=>setCommonOpen(false)}><X size={18}/></button></div>
-            <div className="common-form">{commonFields.map(name=><label key={name}><span>{name}</span><input autoFocus={name===commonFields[0]} value={commonDraft[name] ?? ""} placeholder={`${name}を入力`} onChange={(e)=>setCommonDraft(current=>({...current,[name]:e.target.value}))}/></label>)}</div>
-            <div className="common-actions"><button onClick={()=>setCommonOpen(false)}>キャンセル</button><button className="primary" disabled={commonFields.some(name=>!commonDraft[name]?.trim())} onClick={()=>{setCommonValues({...commonDraft});setCommonOpen(false);setResult(null);}}>適用</button></div>
+            <div className="drawer-head"><div><h2 id="common-title">共通項目の入力</h2><p>&lt;&lt;項目名&gt;&gt;へ、すべての文書で共通する文字を挿入します。</p></div><button className="icon-button" onClick={()=>setCommonOpen(false)} aria-label="共通項目入力を閉じる"><X size={18} /></button></div>
+            <div className="common-form">{commonFields.map(name=><label key={name}><span>{name}</span><input autoFocus={name===commonFields[0]} value={commonDraft[name] ?? ""} placeholder={`${name}`} onChange={(event)=>setCommonDraft(current=>({ ...current, [name]: event.target.value }))} /></label>)}</div>
+            <div className="common-actions"><button onClick={()=>setCommonOpen(false)}>キャンセル</button><button className="primary" disabled={commonFields.some(name=>!commonDraft[name]?.trim())} onClick={()=>{ setCommonValues(commonDraft); setCommonOpen(false); }}>保存</button></div>
           </section>
         </div>
       )}
       {settingsOpen && (
         <div className="overlay center-overlay" onMouseDown={() => setSettingsOpen(false)}>
           <section className="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-title" onMouseDown={(event) => event.stopPropagation()}>
-            <div className="drawer-head"><div><h2 id="settings-title">詳細設定</h2><p>変更内容は自動保存されます。</p></div><button className="icon-button" onClick={() => setSettingsOpen(false)}><X size={18} /></button></div>
+            <div className="drawer-head"><div><h2 id="settings-title">詳細設定</h2><p>変更内容は自動保存されます。</p></div><button className="icon-button" onClick={() => setSettingsOpen(false)} aria-label="詳細設定を閉じる"><X size={18} /></button></div>
             <div className="settings-layout">
               <nav className="settings-nav">
                 <button className={settingsSection === "filename" ? "active" : ""} onClick={() => setSettingsSection("filename")}>ファイル名</button>
@@ -818,23 +854,54 @@ export default function App() {
               </nav>
               <div className="settings-content">
                 {settingsSection === "filename" && <section className="setting-panel"><h3>ファイル名</h3>
-                  <div className="serial-row"><label className="check"><input type="checkbox" checked={settings.addSerialNumber} disabled={settings.filenameKeys.length === 0} onChange={(event) => setSettings((c) => ({...c, addSerialNumber:event.target.checked || c.filenameKeys.length===0}))}/>先頭に通し番号を付ける</label><label className="digit-field">桁数<input type="number" min="1" max="6" disabled={!settings.addSerialNumber} value={settings.serialDigits} onChange={(e)=>setSettings(c=>({...c,serialDigits:Math.min(6,Math.max(1,Number(e.target.value)||1))}))}/></label></div>
+                  <div className="serial-row"><label className="check"><input type="checkbox" checked={settings.addSerialNumber} disabled={settings.filenameKeys.length === 0} onChange={(event) => setSettings((current) => ({ ...current, addSerialNumber: event.target.checked }))} /> 通し番号を付ける</label></div>
                   {settings.filenameKeys.length===0 && <small className="setting-note">列が選択されていないため、通し番号は必須です。</small>}
                   <div className="setting-subhead"><strong>ファイル名に使用する列</strong><small>選択した順にファイル名へ追加します。</small></div>
-                  {!preview ? <p className="muted-box">置換データを読み込むと列を選択できます。</p> : <><div className="column-choice-list">{preview.columns.map(column=><label className="check column-choice" key={column}><input type="checkbox" checked={settings.filenameKeys.includes(column)} disabled={settings.filenameKeys.includes(column)&&settings.filenameKeys.length===1&&!settings.addSerialNumber} onChange={()=>toggleFilenameKey(column)}/><span>{column}</span></label>)}</div><div className="sort-list">{settings.filenameKeys.map((key,index)=><div className="sort-item" key={key}><span className="sort-number">{index+1}</span><strong>{key}</strong><div><button disabled={index===0} onClick={()=>moveFilenameKey(index,-1)}><ChevronUp size={16}/></button><button disabled={index===settings.filenameKeys.length-1} onClick={()=>moveFilenameKey(index,1)}><ChevronDown size={16}/></button><button disabled={settings.filenameKeys.length===1&&!settings.addSerialNumber} onClick={()=>toggleFilenameKey(key)}><Trash2 size={16}/></button></div></div>)}</div></>}
+                  {!preview ? <p className="muted-box">置換データを読み込むと列を選択できます。</p> : <><div className="column-choice-list">{preview.columns.map(column => <label key={column} className={settings.filenameKeys.includes(column) ? "selected" : ""}><input type="checkbox" checked={settings.filenameKeys.includes(column)} onChange={() => toggleFilenameKey(column)} />{column}</label>)}</div></>}
                   <div className="drawer-preview"><small>出力例</small><code>{exampleName}</code></div>
                 </section>}
                 {settingsSection === "exclude" && <section className="setting-panel"><h3>行の除外</h3>
-                  <label className="check example-toggle"><input type="checkbox" checked={settings.excludeExampleRows} onChange={(e)=>setSettings(c=>({...c,excludeExampleRows:e.target.checked}))}/>1列目に「例」を含む行を除外する</label><small className="setting-note">必要なデータにも「例」が含まれる場合はOFFにしてください。</small>
-                  <label className="field-label">空欄による除外条件<select value={settings.rowExcludeMode} onChange={(e)=>setSettings(c=>({...c,rowExcludeMode:e.target.value as Settings["rowExcludeMode"]}))}><option value="none">何も除外しない</option><option value="any_empty_except_first">1列目以外に空欄があれば除外</option><option value="any_empty">どこかに空欄があれば除外</option><option value="all_empty_except_first">1列目以外がすべて空なら除外</option><option value="selected_columns_all_empty">指定列がすべて空なら除外</option><option value="selected_columns_any_empty">指定列のどれか1つでも空なら除外</option></select></label>
-                  {settings.rowExcludeMode.startsWith("selected_columns") && <><div className="setting-subhead"><strong>除外判定に使用する列</strong><small>{settings.rowExcludeMode==="selected_columns_all_empty"?"選択した列がすべて空欄の場合に除外します。":"選択した列に1つでも空欄がある場合に除外します。"}</small></div>{!preview?<p className="muted-box">置換データを読み込むと列を選択できます。</p>:<div className="column-choice-list">{preview.columns.map(column=><label className="check column-choice" key={column}><input type="checkbox" checked={settings.rowExcludeColumns.includes(column)} onChange={()=>setSettings(c=>({...c,rowExcludeColumns:c.rowExcludeColumns.includes(column)?c.rowExcludeColumns.filter(x=>x!==column):[...c.rowExcludeColumns,column]}))}/><span>{column}</span></label>)}</div>}{settings.rowExcludeColumns.length===0&&<small className="validation-note">除外判定に使用する列を1つ以上選択してください。</small>}</>}
-                  <div className="setting-summary"><strong>現在の除外条件</strong><span>{settings.excludeExampleRows?'記入例を除外':'記入例も使用'} / {settings.rowExcludeMode==='none'?'空欄による除外なし':settings.rowExcludeMode==='selected_columns_all_empty'?'指定列がすべて空なら除外':settings.rowExcludeMode==='selected_columns_any_empty'?'指定列のどれか1つでも空なら除外':settings.rowExcludeMode==='any_empty_except_first'?'1列目以外に空欄があれば除外':settings.rowExcludeMode==='any_empty'?'どこかに空欄があれば除外':'1列目以外がすべて空なら除外'}</span></div>
+                  <label className="check example-toggle"><input type="checkbox" checked={settings.excludeExampleRows} onChange={(e)=>setSettings(c=>({...c,excludeExampleRows:e.target.checked}))} /> 記入例を除外する</label>
+                  <label className="field-label">空欄による除外条件<select value={settings.rowExcludeMode} onChange={(e)=>setSettings(c=>({...c,rowExcludeMode:e.target.value as Settings["rowExcludeMode"]}))}>
+                    <option value="selected_columns_any_empty">選択した列のどれか1つでも空欄</option>
+                    <option value="selected_columns_all_empty">選択した列がすべて空欄</option>
+                    <option value="selected_column_number_empty">指定列が空欄</option>
+                    <option value="none">除外しない</option>
+                  </select></label>
+                  {settings.rowExcludeMode.startsWith("selected_columns") && <><div className="setting-subhead"><strong>除外判定に使用する列</strong><small>{settings.rowExcludeMode === "selected_columns_any_empty" ? "どれか1つでも空欄なら除外" : "すべて空欄なら除外"}</small></div>{!preview ? <p className="muted-box">置換データを読み込むと列を選択できます。</p> : <div className="column-choice-list">{preview.columns.map(column => <label key={column} className={settings.rowExcludeColumns.includes(column) ? "selected" : ""}><input type="checkbox" checked={settings.rowExcludeColumns.includes(column)} onChange={()=>setSettings(c=>({ ...c, rowExcludeColumns: c.rowExcludeColumns.includes(column) ? c.rowExcludeColumns.filter(item=>item!==column) : [...c.rowExcludeColumns, column] }))} />{column}</label>)}</div>}</>}
+                  <div className="setting-summary"><strong>現在の除外条件</strong><span>{settings.excludeExampleRows ? "記入例を除外" : "記入例も使用"} / {settings.rowExcludeMode === "none" ? "除外なし" : settings.rowExcludeMode}</span></div>
                 </section>}
-                {settingsSection === "numeric" && <section className="setting-panel"><h3>数値の整形</h3><label className="check"><input type="checkbox" checked={settings.formatAmountWithComma} onChange={(e)=>setSettings(c=>({...c,formatAmountWithComma:e.target.checked}))}/>数値をカンマ区切りにする</label><small className="setting-note">登録したキーワードを列名に含む列の値を、カンマ区切り形式へ整形します。</small><div className={settings.formatAmountWithComma?"amount-keyword-editor":"amount-keyword-editor disabled"}><div className="setting-subhead amount-keyword-heading"><div><strong>対象となる列名キーワード</strong><small>部分一致で判定します。</small></div><button disabled={!settings.formatAmountWithComma} onClick={resetAmountKeywords}>初期設定に戻す</button></div><div className="keyword-tags">{settings.amountIncludeKeywords.length===0?<span className="keyword-empty">対象キーワードがありません。</span>:settings.amountIncludeKeywords.map(keyword=><span className="keyword-tag" key={keyword}>{keyword}<button disabled={!settings.formatAmountWithComma} onClick={()=>removeAmountKeyword(keyword)}><X size={13}/></button></span>)}</div><div className="keyword-add-row"><input type="text" value={amountKeywordInput} disabled={!settings.formatAmountWithComma} placeholder="例：補助対象経費" onChange={(e)=>setAmountKeywordInput(e.target.value)} onKeyDown={(e)=>{if(e.key==='Enter'){e.preventDefault();addAmountKeyword();}}}/><button disabled={!settings.formatAmountWithComma||!amountKeywordInput.trim()} onClick={addAmountKeyword}>追加</button></div></div></section>}
-                {settingsSection === "pdf" && <section className="setting-panel"><h3>PDF</h3><label className="check"><input type="checkbox" checked={settings.fastPdfSplitEnabled} onChange={(e)=>setSettings(c=>({...c,fastPdfSplitEnabled:e.target.checked}))}/>個別PDF出力を高速化する</label><small className="setting-note">分割できない場合は自動的に通常方式へ切り替えます。</small></section>}
+                {settingsSection === "numeric" && (
+                  <section className="setting-panel">
+                    <h3>数値の整形</h3>
+                    <label className="check">
+                      <input type="checkbox" checked={settings.formatAmountWithComma} onChange={(e) => setSettings((current) => ({ ...current, formatAmountWithComma: e.target.checked }))} />
+                      数値をカンマ区切りにする
+                    </label>
+                    <div className={`amount-keyword-editor ${settings.formatAmountWithComma ? "" : "disabled"}`}>
+                      <div className="amount-keyword-heading">
+                        <div><strong>対象キーワード</strong><small>列名に含まれる語句を登録します</small></div>
+                        <button type="button" disabled={!settings.formatAmountWithComma} onClick={resetAmountKeywords}>初期値に戻す</button>
+                      </div>
+                      <div className="keyword-tags" aria-label="登録済みの対象キーワード">
+                        {settings.amountIncludeKeywords.length === 0 ? <span className="keyword-empty">キーワードは登録されていません</span> : settings.amountIncludeKeywords.map((keyword) => (
+                          <span key={keyword} className="keyword-tag">
+                            {keyword}
+                            <button type="button" disabled={!settings.formatAmountWithComma} onClick={() => removeAmountKeyword(keyword)} aria-label={`${keyword}を削除`}>×</button>
+                          </span>
+                        ))}
+                      </div>
+                      <div className="keyword-add-row">
+                        <input type="text" disabled={!settings.formatAmountWithComma} value={amountKeywordInput} onChange={(e) => setAmountKeywordInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addAmountKeyword(); } }} placeholder="例：支給額" />
+                        <button type="button" disabled={!settings.formatAmountWithComma || !amountKeywordInput.trim()} onClick={addAmountKeyword}>追加</button>
+                      </div>
+                    </div>
+                  </section>
+                )}
+                {settingsSection === "pdf" && <section className="setting-panel"><h3>PDF</h3><label className="check"><input type="checkbox" checked={settings.fastPdfSplitEnabled} onChange={(e)=>setSettings(c=>({...c,fastPdfSplitEnabled:e.target.checked}))} /> PDF個別出力時に高速分割を使用する</label></section>}
               </div>
             </div>
-            <div className="settings-actions"><button onClick={()=>setSettingsOpen(false)}>キャンセル</button><button className="primary" disabled={settings.rowExcludeMode.startsWith("selected_columns")&&settings.rowExcludeColumns.length===0} onClick={async()=>{setSettingsOpen(false);if(dataPath)await inspect();}}>設定を適用</button></div>
+            <div className="settings-actions"><button onClick={()=>setSettingsOpen(false)}>キャンセル</button><button className="primary" onClick={()=>setSettingsOpen(false)}>保存</button></div>
           </section>
         </div>
       )}
@@ -852,7 +919,7 @@ export default function App() {
               <button className={previewTab === "included" ? "active" : ""} onClick={() => setPreviewTab("included")}>使用するデータ <span>{preview.included_count}</span></button>
               <button className={previewTab === "excluded" ? "active" : ""} onClick={() => setPreviewTab("excluded")}>除外されたデータ <span>{preview.excluded_count}</span></button>
             </div>
-            {commonFields.length > 0 && <div className="common-preview"><strong>共通項目</strong>{commonFields.map(name=><span key={name}><b>{name}</b><em>{commonValues[name] || "未入力"}</em></span>)}</div>}<div className="exclusion-summary"><strong>現在の除外条件</strong><span>{preview.exclusion_summary || "設定なし"}</span></div><div className="table-help">表の下部にあるスクロールバーで、右側の列まで確認できます。</div>
+            {commonFields.length > 0 && <div className="common-preview"><strong>共通項目</strong>{commonFields.map(name=><span key={name}><b>{name}</b><em>{commonValues[name] || "未入力"}</em></span>)}</div>}
             <div className="table-scroll" tabIndex={0}>
               <table>
                 <thead>

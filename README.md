@@ -6,7 +6,7 @@ Tauri、React、TypeScriptによるデスクトップUIと、PythonによるWord
 
 ## Version
 
-**Ver.1.3.1 数値置換時のフォント修正版**
+**Ver.2.1.0 UI改善版**
 
 ## 主な機能
 
