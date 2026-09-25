@@ -645,7 +645,7 @@ export default function App() {
 
   return (
     <div className={dark ? "app dark" : "app"}>
-      {dragActive && <div className="native-drop-overlay" aria-live="polite"><div className="native-drop-panel"><span className="drop-symbol"><FileSpreadsheet size={28} /></span><strong>ここにファイルをドロップ</strong><small>テンプレート、置換データ、出力先を<br />まとめて選択できます</small></div></div>}
+      {dragActive && <div className="native-drop-overlay" aria-live="polite"><div className="native-drop-panel"><span className="drop-symbol"><FileSpreadsheet size={28} /></span><strong>ここにファイルをドロップ</strong><small>テンプレート、置換データ、出力先をまとめて選択できます</small></div></div>}
       {dropNotice && <div className="drop-toast"><Check size={15} />{dropNotice}</div>}
       <header>
         <div className="brand-block">
@@ -726,9 +726,7 @@ export default function App() {
         <section className="lower-settings-grid">
           <section className="output-card compact-output-card">
             <div className="group-heading"><span>3</span><h2>出力設定</h2></div>
-            <div className="output-destination">
-              <Picker kind="folder" title="出力先" path={outputPath} disabled={busy} onPick={chooseOutput} />
-            </div>
+            <div className="output-destination"><Picker kind="folder" title="出力先" path={outputPath} disabled={busy} onPick={chooseOutput} /></div>
             <div className="compact-output-options">
               <div className="output-field"><label>出力形式</label><Segmented value={settings.outputFormat} onChange={(value) => setSettings((current) => ({ ...current, outputFormat: value }))} items={[{ value: "word", label: "Word" }, { value: "pdf", label: "PDF" }]} /></div>
               <div className="output-field"><label>出力方法</label><Segmented value={settings.outputMethod} onChange={(value) => setSettings((current) => ({ ...current, outputMethod: value }))} items={[{ value: "folder", label: "個別" }, { value: "merged", label: "結合" }, { value: "zip", label: "ZIP" }]} /></div>
@@ -737,17 +735,13 @@ export default function App() {
 
           <section className="filename-card">
             <div className="group-heading"><span>4</span><h2>ファイル名設定</h2></div>
-            <div className="filename-columns-heading"><strong>ファイル名に使用する列</strong><button className="details-link" onClick={() => { setSettingsSection("filename"); setSettingsOpen(true); }}>詳細設定</button></div>
-            {!preview ? <div className="filename-columns-empty">置換データを読み込むと列を選択できます</div> : (
-              <div className="filename-columns-grid">{preview.columns.map((column) => { const order = settings.filenameKeys.indexOf(column); return (
-                <label key={column} className={order >= 0 ? "selected" : ""} title={column}><span className="selection-order">{order >= 0 ? order + 1 : ""}</span><input type="checkbox" checked={order >= 0} onChange={() => toggleFilenameKey(column)} /><span className="column-name">{column}</span></label>
-              ); })}</div>
+            {!preview ? (
+              <div className="filename-empty-card"><span className="status-card-icon"><FileText size={18} /></span><div><strong>ファイル名に使用する列を選択</strong><small>置換データ読込後に列を選択できます</small></div></div>
+            ) : (
+              <div className="filename-columns-block"><div className="filename-columns-heading"><strong>ファイル名に使用する列</strong><button className="details-link" onClick={() => { setSettingsSection("filename"); setSettingsOpen(true); }}>詳細設定</button></div><div className="filename-columns-grid">{preview.columns.map((column) => { const order = settings.filenameKeys.indexOf(column); return <label key={column} className={order >= 0 ? "selected" : ""} title={column}><input type="checkbox" checked={order >= 0} onChange={() => toggleFilenameKey(column)} /><span className="selection-order">{order >= 0 ? order + 1 : ""}</span><span className="column-name">{column}</span></label>; })}</div></div>
             )}
             <div className="filename-card-footer">
-              <div className="serial-control-card">
-                <label className="check"><input type="checkbox" checked={settings.addSerialNumber} disabled={settings.filenameKeys.length === 0} onChange={(event) => setSettings((current) => ({ ...current, addSerialNumber: event.target.checked }))} /> 通し番号を付ける</label>
-                <div className="digit-stepper"><span>桁数</span><button type="button" disabled={settings.serialDigits <= 1} onClick={() => setSettings((current) => ({ ...current, serialDigits: Math.max(1, current.serialDigits - 1) }))}>−</button><strong>{settings.serialDigits}</strong><button type="button" disabled={settings.serialDigits >= 6} onClick={() => setSettings((current) => ({ ...current, serialDigits: Math.min(6, current.serialDigits + 1) }))}>＋</button></div>
-              </div>
+              <div className="serial-control-card"><label className="check"><input type="checkbox" checked={settings.addSerialNumber} disabled={settings.filenameKeys.length === 0} onChange={(event) => setSettings((current) => ({ ...current, addSerialNumber: event.target.checked }))} /> 通し番号を付ける</label><div className="digit-stepper"><span>桁数</span><button type="button" disabled={settings.serialDigits <= 1} onClick={() => setSettings((current) => ({ ...current, serialDigits: Math.max(1, current.serialDigits - 1) }))}>−</button><strong>{settings.serialDigits}</strong><button type="button" disabled={settings.serialDigits >= 6} onClick={() => setSettings((current) => ({ ...current, serialDigits: Math.min(6, current.serialDigits + 1) }))}>＋</button></div></div>
               <div className="filename-example"><small>出力例</small><code>{templatePath ? exampleName : "テンプレート選択後に表示します"}</code></div>
             </div>
           </section>
@@ -839,7 +833,7 @@ export default function App() {
                   <div className="serial-row"><label className="check"><input type="checkbox" checked={settings.addSerialNumber} disabled={settings.filenameKeys.length === 0} onChange={(event) => setSettings((current) => ({ ...current, addSerialNumber: event.target.checked }))} /> 通し番号を付ける</label></div><div className="detail-digit-stepper"><span>通し番号の桁数</span><div className="digit-stepper"><button type="button" disabled={settings.serialDigits <= 1} onClick={() => setSettings((current) => ({ ...current, serialDigits: Math.max(1, current.serialDigits - 1) }))}>−</button><strong>{settings.serialDigits}</strong><button type="button" disabled={settings.serialDigits >= 6} onClick={() => setSettings((current) => ({ ...current, serialDigits: Math.min(6, current.serialDigits + 1) }))}>＋</button></div></div>
                   {settings.filenameKeys.length===0 && <small className="setting-note">列が選択されていないため、通し番号は必須です。</small>}
                   <div className="setting-subhead"><strong>ファイル名に使用する列</strong><small>選択した順にファイル名へ追加します。</small></div>
-                  {!preview ? <p className="muted-box">置換データを読み込むと列を選択できます。</p> : <><div className="column-choice-list">{preview.columns.map((column) => { const order = settings.filenameKeys.indexOf(column); return <label key={column} className={order >= 0 ? "selected" : ""}><span className="selection-order">{order >= 0 ? order + 1 : ""}</span><input type="checkbox" checked={order >= 0} onChange={() => toggleFilenameKey(column)} /><span className="column-name">{column}</span></label>; })}</div></>}
+                  {!preview ? <p className="muted-box">置換データを読み込むと列を選択できます。</p> : <><div className="column-choice-list">{preview.columns.map((column) => { const order = settings.filenameKeys.indexOf(column); return <label key={column} className={order >= 0 ? "selected" : ""}><input type="checkbox" checked={order >= 0} onChange={() => toggleFilenameKey(column)} /><span className="selection-order">{order >= 0 ? order + 1 : ""}</span><span className="column-name">{column}</span></label>; })}</div></>}
                   <div className="drawer-preview"><small>出力例</small><code>{exampleName}</code></div>
                 </section>}
                 {settingsSection === "exclude" && <section className="setting-panel"><h3>行の除外</h3>
