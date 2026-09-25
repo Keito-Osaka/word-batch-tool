@@ -23,7 +23,7 @@ import {
 import type { DataPreview, DroppedPathClassification, GenerateResult, GenerationProgress, Settings, TemplateInspection, CommonValues } from "./types";
 import appIconUrl from "../src-tauri/icons/icon.png";
 
-const APP_VERSION = "Ver.2.1.0";
+const APP_VERSION = "Ver.2.2.0";
 const DEFAULT_AMOUNT_INCLUDE_KEYWORDS = [
   "交付申請額",
   "交付決定額",
@@ -150,8 +150,9 @@ function HelpGuide({ onClose }: { onClose: () => void }) {
                 <ol className="help-steps">
                   <li><span>1</span><div><strong>テンプレートを選択</strong><p>差し込み項目を含むWordファイルを選びます。ドラッグ＆ドロップにも対応しています。</p></div></li>
                   <li><span>2</span><div><strong>置換データを選択</strong><p>ExcelまたはCSVを選びます。「置換データを確認」から内容と除外行を確認できます。</p></div></li>
-                  <li><span>3</span><div><strong>出力設定を指定</strong><p>WordまたはPDF、個別・結合・ZIP、作成したファイルを保存する出力先フォルダを指定します。</p></div></li>
-                  <li><span>4</span><div><strong>複製を開始</strong><p>件数と出力ファイル名の例を確認してから開始します。</p></div></li>
+                  <li><span>3</span><div><strong>出力先を選択</strong><p>作成したファイルを保存するフォルダを選びます。</p></div></li>
+                  <li><span>4</span><div><strong>形式と方法を指定</strong><p>WordまたはPDF、個別・結合・ZIPを選びます。</p></div></li>
+                  <li><span>5</span><div><strong>複製を開始</strong><p>件数と出力ファイル名の例を確認してから開始します。</p></div></li>
                 </ol>
               </div>
             )}
@@ -159,11 +160,14 @@ function HelpGuide({ onClose }: { onClose: () => void }) {
             {section === "template" && (
               <div className="help-section">
                 <h3>テンプレートの作り方</h3>
-                <p>行ごとに異なる値は、項目名を半角の二重波括弧 <code>{`{{項目名}}`}</code> で囲みます。括弧内の文字は、置換データの列名と完全に一致させてください。</p>
-                <div className="help-example"><small>行ごとに異なる項目の例</small><code>学校名：{`{{学校名}}`}<br />氏名：{`{{氏名}}`}<br />交付決定額：{`{{交付決定額}}`}</code></div>
-                <p className="help-common-intro">通知日などの全文書で共通する項目は、項目名を半角の <code>&lt;&lt;</code> と <code>&gt;&gt;</code> で囲み、<code>&lt;&lt;項目名&gt;&gt;</code> の形式で入力します。テンプレートを読み込むと共通項目が自動検出されるため、メイン画面の「共通項目を入力」から値を設定してください。</p>
-                <div className="help-example help-example-common"><small>全文書で共通する項目の例</small><code>通知日：{`<<通知日>>`}<br />回答期限：{`<<回答期限>>`}<br />担当者：{`<<担当者名>>`}</code></div>
-                <div className="help-rule-list"><p><strong>使用できる形式</strong><span>.docx</span></p><p><strong>正しい書き方</strong><span><code>{`{{学校名}}`}</code><br /><code>{`<<通知日>>`}</code></span></p><p><strong>避ける書き方</strong><span><code>{`{{ 学校名 }}`}</code><br /><code>{`<< 通知日 >>`}</code></span></p></div>
+                <p>Word内の置換したい部分を、半角の二重波括弧で囲みます。括弧内の文字は、置換データの列名と完全に一致させてください。</p>
+                <div className="help-example"><small>テンプレートの例</small><code>学校名：{`{{学校名}}`}<br />氏名：{`{{氏名}}`}<br />交付決定額：金{`{{交付決定額}}`}</code></div>
+                <div className="help-rule-list">
+                  <p><strong>使用できる形式</strong><span>.docx</span></p>
+                  <p><strong>正しい書き方</strong><span><code>{`{{学校名}}`}</code></span></p>
+                  <p><strong>避ける書き方</strong><span><code>{`{{ 学校名 }}`}</code></span></p>
+                </div>
+                <div className="help-note"><strong>全文書で共通する項目</strong><p>通知日や回答期限など、すべての文書で同じ値を使う部分は、半角の&lt;&lt;項目名&gt;&gt;で入力できます。</p></div>
                 <div className="help-note"><strong>書式を維持するために</strong><p>プレースホルダー全体を同じ文字サイズ・フォント・装飾にしてください。</p></div>
               </div>
             )}
@@ -719,44 +723,34 @@ export default function App() {
           </section>
         </section>
 
-        <section className="output-card">
-          <div className="group-heading output-heading"><span>3</span><h2>出力設定</h2></div>
-          <div className="output-grid">
-            <div className="output-field">
-              <label>出力形式</label>
-              <Segmented
-                value={settings.outputFormat}
-                onChange={(value) => setSettings((current) => ({ ...current, outputFormat: value }))}
-                items={[{ value: "word", label: "Word" }, { value: "pdf", label: "PDF" }]}
-              />
-            </div>
-            <div className="output-field">
-              <label>出力方法</label>
-              <Segmented
-                value={settings.outputMethod}
-                onChange={(value) => setSettings((current) => ({ ...current, outputMethod: value }))}
-                items={[
-                  { value: "folder", label: "個別" },
-                  { value: "merged", label: "結合" },
-                  { value: "zip", label: "ZIP" },
-                ]}
-              />
-            </div>
-            <div className="output-field output-path-field">
-              <label>出力先</label>
+        <section className="lower-settings-grid">
+          <section className="output-card compact-output-card">
+            <div className="group-heading"><span>3</span><h2>出力設定</h2></div>
+            <div className="output-destination">
               <Picker kind="folder" title="出力先" path={outputPath} disabled={busy} onPick={chooseOutput} />
             </div>
-          </div>
-
-          <div className="output-footer">
-            <div className="filename-inline" title={templatePath ? exampleName : undefined}>
-              <small>出力ファイル名の例</small>
-              <code>{templatePath ? exampleName : "テンプレート選択後に表示します"}</code>
+            <div className="compact-output-options">
+              <div className="output-field"><label>出力形式</label><Segmented value={settings.outputFormat} onChange={(value) => setSettings((current) => ({ ...current, outputFormat: value }))} items={[{ value: "word", label: "Word" }, { value: "pdf", label: "PDF" }]} /></div>
+              <div className="output-field"><label>出力方法</label><Segmented value={settings.outputMethod} onChange={(value) => setSettings((current) => ({ ...current, outputMethod: value }))} items={[{ value: "folder", label: "個別" }, { value: "merged", label: "結合" }, { value: "zip", label: "ZIP" }]} /></div>
             </div>
-            <button className="details" disabled={busy} onClick={() => setSettingsOpen(true)}>
-              ファイル名と詳細設定 <ChevronRight size={17} />
-            </button>
-          </div>
+          </section>
+
+          <section className="filename-card">
+            <div className="group-heading"><span>4</span><h2>ファイル名設定</h2></div>
+            <div className="filename-columns-heading"><strong>ファイル名に使用する列</strong><button className="details-link" onClick={() => { setSettingsSection("filename"); setSettingsOpen(true); }}>詳細設定</button></div>
+            {!preview ? <div className="filename-columns-empty">置換データを読み込むと列を選択できます</div> : (
+              <div className="filename-columns-grid">{preview.columns.map((column) => { const order = settings.filenameKeys.indexOf(column); return (
+                <label key={column} className={order >= 0 ? "selected" : ""} title={column}><span className="selection-order">{order >= 0 ? order + 1 : ""}</span><input type="checkbox" checked={order >= 0} onChange={() => toggleFilenameKey(column)} /><span className="column-name">{column}</span></label>
+              ); })}</div>
+            )}
+            <div className="filename-card-footer">
+              <div className="serial-control-card">
+                <label className="check"><input type="checkbox" checked={settings.addSerialNumber} disabled={settings.filenameKeys.length === 0} onChange={(event) => setSettings((current) => ({ ...current, addSerialNumber: event.target.checked }))} /> 通し番号を付ける</label>
+                <div className="digit-stepper"><span>桁数</span><button type="button" disabled={settings.serialDigits <= 1} onClick={() => setSettings((current) => ({ ...current, serialDigits: Math.max(1, current.serialDigits - 1) }))}>−</button><strong>{settings.serialDigits}</strong><button type="button" disabled={settings.serialDigits >= 6} onClick={() => setSettings((current) => ({ ...current, serialDigits: Math.min(6, current.serialDigits + 1) }))}>＋</button></div>
+              </div>
+              <div className="filename-example"><small>出力例</small><code>{templatePath ? exampleName : "テンプレート選択後に表示します"}</code></div>
+            </div>
+          </section>
         </section>
 
         {templateInspection?.conflicting_fields?.length ? <section className="template-warning"><strong>同じ名前が行別項目と共通項目にあります</strong><p>{templateInspection.conflicting_fields.join("、")}</p></section> : null}
@@ -842,10 +836,10 @@ export default function App() {
               </nav>
               <div className="settings-content">
                 {settingsSection === "filename" && <section className="setting-panel"><h3>ファイル名</h3>
-                  <div className="serial-row"><label className="check"><input type="checkbox" checked={settings.addSerialNumber} disabled={settings.filenameKeys.length === 0} onChange={(event) => setSettings((current) => ({ ...current, addSerialNumber: event.target.checked }))} /> 通し番号を付ける</label></div>
+                  <div className="serial-row"><label className="check"><input type="checkbox" checked={settings.addSerialNumber} disabled={settings.filenameKeys.length === 0} onChange={(event) => setSettings((current) => ({ ...current, addSerialNumber: event.target.checked }))} /> 通し番号を付ける</label></div><div className="detail-digit-stepper"><span>通し番号の桁数</span><div className="digit-stepper"><button type="button" disabled={settings.serialDigits <= 1} onClick={() => setSettings((current) => ({ ...current, serialDigits: Math.max(1, current.serialDigits - 1) }))}>−</button><strong>{settings.serialDigits}</strong><button type="button" disabled={settings.serialDigits >= 6} onClick={() => setSettings((current) => ({ ...current, serialDigits: Math.min(6, current.serialDigits + 1) }))}>＋</button></div></div>
                   {settings.filenameKeys.length===0 && <small className="setting-note">列が選択されていないため、通し番号は必須です。</small>}
                   <div className="setting-subhead"><strong>ファイル名に使用する列</strong><small>選択した順にファイル名へ追加します。</small></div>
-                  {!preview ? <p className="muted-box">置換データを読み込むと列を選択できます。</p> : <><div className="column-choice-list">{preview.columns.map(column => <label key={column} className={settings.filenameKeys.includes(column) ? "selected" : ""}><input type="checkbox" checked={settings.filenameKeys.includes(column)} onChange={() => toggleFilenameKey(column)} />{column}</label>)}</div></>}
+                  {!preview ? <p className="muted-box">置換データを読み込むと列を選択できます。</p> : <><div className="column-choice-list">{preview.columns.map((column) => { const order = settings.filenameKeys.indexOf(column); return <label key={column} className={order >= 0 ? "selected" : ""}><span className="selection-order">{order >= 0 ? order + 1 : ""}</span><input type="checkbox" checked={order >= 0} onChange={() => toggleFilenameKey(column)} /><span className="column-name">{column}</span></label>; })}</div></>}
                   <div className="drawer-preview"><small>出力例</small><code>{exampleName}</code></div>
                 </section>}
                 {settingsSection === "exclude" && <section className="setting-panel"><h3>行の除外</h3>
@@ -859,7 +853,7 @@ export default function App() {
                   {settings.rowExcludeMode.startsWith("selected_columns") && <><div className="setting-subhead"><strong>除外判定に使用する列</strong><small>{settings.rowExcludeMode === "selected_columns_any_empty" ? "どれか1つでも空欄なら除外" : "すべて空欄なら除外"}</small></div>{!preview ? <p className="muted-box">置換データを読み込むと列を選択できます。</p> : <div className="column-choice-list">{preview.columns.map(column => <label key={column} className={settings.rowExcludeColumns.includes(column) ? "selected" : ""}><input type="checkbox" checked={settings.rowExcludeColumns.includes(column)} onChange={()=>setSettings(c=>({ ...c, rowExcludeColumns: c.rowExcludeColumns.includes(column) ? c.rowExcludeColumns.filter(item=>item!==column) : [...c.rowExcludeColumns, column] }))} />{column}</label>)}</div>}</>}
                   <div className="setting-summary"><strong>現在の除外条件</strong><span>{settings.excludeExampleRows ? "記入例を除外" : "記入例も使用"} / {settings.rowExcludeMode === "none" ? "除外なし" : settings.rowExcludeMode}</span></div>
                 </section>}
-                {settingsSection === "numeric" && <section className="setting-panel"><h3>数値の整形</h3><label className="check"><input type="checkbox" checked={settings.formatAmountWithComma} onChange={(e)=>setSettings(c=>({...c,formatAmountWithComma:e.target.checked}))} /> 数値をカンマ区切りにする</label><div className="amount-keyword-editor"><div className="amount-keyword-heading"><strong>対象キーワード</strong><button onClick={resetAmountKeywords}>初期化</button></div>{settings.amountIncludeKeywords.map(keyword => <span key={keyword} className="keyword-tag">{keyword}<button onClick={() => removeAmountKeyword(keyword)} aria-label={`${keyword}を削除`}>×</button></span>)}<div className="keyword-add-row"><input value={amountKeywordInput} onChange={(e)=>setAmountKeywordInput(e.target.value)} placeholder="例: 支給額" /><button onClick={addAmountKeyword}>追加</button></div></div></section>}
+                {settingsSection === "numeric" && <section className="setting-panel"><h3>数値の整形</h3><label className="check"><input type="checkbox" checked={settings.formatAmountWithComma} onChange={(e)=>setSettings(c=>({...c,formatAmountWithComma:e.target.checked}))} /> 数値をカンマ区切りにする</label><div className="amount-keyword-editor"><div className="amount-keyword-heading"><strong>対象キーワード</strong><button onClick={resetAmountKeywords}>初期化</button></div>{settings.amountIncludeKeywords.map(keyword => <span key={keyword} className="keyword-pill">{keyword}<button onClick={() => removeAmountKeyword(keyword)} aria-label={`${keyword}を削除`}>×</button></span>)}<div className="amount-keyword-entry"><input value={amountKeywordInput} onChange={(e)=>setAmountKeywordInput(e.target.value)} placeholder="例: 支給額" /><button onClick={addAmountKeyword}>追加</button></div></div></section>}
                 {settingsSection === "pdf" && <section className="setting-panel"><h3>PDF</h3><label className="check"><input type="checkbox" checked={settings.fastPdfSplitEnabled} onChange={(e)=>setSettings(c=>({...c,fastPdfSplitEnabled:e.target.checked}))} /> PDF個別出力時に高速分割を使用する</label></section>}
               </div>
             </div>
