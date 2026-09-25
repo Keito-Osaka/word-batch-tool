@@ -41,7 +41,7 @@ Tauri、React、TypeScriptによるデスクトップUIと、PythonによるWord
 
 ### ファイル名
 
-- 通し番号の付加と桁数指定
+- 連番の付加と桁数指定
 - Excel・CSVの任意の列をファイル名へ追加
 - 複数列の選択と並べ替え
 - Windowsで使用できない文字の自動調整

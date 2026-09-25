@@ -150,8 +150,8 @@ function HelpGuide({ onClose }: { onClose: () => void }) {
                 <ol className="help-steps">
                   <li><span>1</span><div><strong>テンプレートを選択</strong><p>差し込み項目を含むWordファイルを選びます。ドラッグ＆ドロップにも対応しています。</p></div></li>
                   <li><span>2</span><div><strong>置換データを選択</strong><p>ExcelまたはCSVを選びます。「置換データを確認」から内容と除外行を確認できます。</p></div></li>
-                  <li><span>3</span><div><strong>出力先を選択</strong><p>作成したファイルを保存するフォルダを選びます。</p></div></li>
-                  <li><span>4</span><div><strong>形式と方法を指定</strong><p>WordまたはPDF、個別・結合・ZIPを選びます。</p></div></li>
+                  <li><span>3</span><div><strong>出力設定を指定</strong><p>WordまたはPDF、個別・結合・ZIP、作成したファイルを保存する出力先フォルダを指定します。</p></div></li>
+                  <li><span>4</span><div><strong>ファイル名を設定</strong><p>ファイル名に使用する列、連番の有無、桁数を指定し、出力ファイル名の例を確認します。</p></div></li>
                   <li><span>5</span><div><strong>複製を開始</strong><p>件数と出力ファイル名の例を確認してから開始します。</p></div></li>
                 </ol>
               </div>
@@ -160,14 +160,11 @@ function HelpGuide({ onClose }: { onClose: () => void }) {
             {section === "template" && (
               <div className="help-section">
                 <h3>テンプレートの作り方</h3>
-                <p>Word内の置換したい部分を、半角の二重波括弧で囲みます。括弧内の文字は、置換データの列名と完全に一致させてください。</p>
-                <div className="help-example"><small>テンプレートの例</small><code>学校名：{`{{学校名}}`}<br />氏名：{`{{氏名}}`}<br />交付決定額：金{`{{交付決定額}}`}</code></div>
-                <div className="help-rule-list">
-                  <p><strong>使用できる形式</strong><span>.docx</span></p>
-                  <p><strong>正しい書き方</strong><span><code>{`{{学校名}}`}</code></span></p>
-                  <p><strong>避ける書き方</strong><span><code>{`{{ 学校名 }}`}</code></span></p>
-                </div>
-                <div className="help-note"><strong>全文書で共通する項目</strong><p>通知日や回答期限など、すべての文書で同じ値を使う部分は、半角の&lt;&lt;項目名&gt;&gt;で入力できます。</p></div>
+                <p>行ごとに異なる値は、項目名を半角の二重波括弧 <code>{`{{項目名}}`}</code> で囲みます。括弧内の文字は、置換データの列名と完全に一致させてください。</p>
+                <div className="help-example"><small>行ごとに異なる項目の例</small><code>学校名：{`{{学校名}}`}<br />氏名：{`{{氏名}}`}<br />交付決定額：{`{{交付決定額}}`}</code></div>
+                <p className="help-common-intro">通知日などの全文書で共通する項目は、項目名を半角の <code>&lt;&lt;</code> と <code>&gt;&gt;</code> で囲み、<code>&lt;&lt;項目名&gt;&gt;</code> の形式で入力します。テンプレートを読み込むと共通項目が自動検出されるため、メイン画面の「共通項目を入力」から値を設定してください。</p>
+                <div className="help-example help-example-common"><small>全文書で共通する項目の例</small><code>通知日：{`<<通知日>>`}<br />回答期限：{`<<回答期限>>`}<br />担当者：{`<<担当者名>>`}</code></div>
+                <div className="help-rule-list"><p><strong>使用できる形式</strong><span>.docx</span></p><p><strong>正しい書き方</strong><span><code>{`{{学校名}}`}</code><br /><code>{`<<通知日>>`}</code></span></p><p><strong>避ける書き方</strong><span><code>{`{{ 学校名 }}`}</code><br /><code>{`<< 通知日 >>`}</code></span></p></div>
                 <div className="help-note"><strong>書式を維持するために</strong><p>プレースホルダー全体を同じ文字サイズ・フォント・装飾にしてください。</p></div>
               </div>
             )}
@@ -200,7 +197,7 @@ function HelpGuide({ onClose }: { onClose: () => void }) {
                   <p><strong>結合・ZIP名</strong><span>テンプレート名_件数件一式</span></p>
                   <p><strong>同名ファイル</strong><span>上書きせず、末尾に番号を付加</span></p>
                 </div>
-                <div className="help-note"><strong>ファイル名の識別</strong><p>初期状態では通し番号が付きます。通し番号を付けない場合は、ファイル名に使う列を1つ以上選択します。</p></div>
+                <div className="help-note"><strong>ファイル名の識別</strong><p>初期状態では連番が付きます。連番を付けない場合は、ファイル名に使う列を1つ以上選択します。</p></div>
                 <div className="help-note"><strong>数値のカンマ区切り</strong><p>登録したキーワードを列名に含む列の値を、カンマ区切り形式へ整形します。</p></div>
                 <div className="help-note"><strong>PDF出力</strong><p>PDF作成には、デスクトップ版Microsoft Wordが必要です。</p></div>
               </div>
@@ -220,6 +217,10 @@ function HelpGuide({ onClose }: { onClose: () => void }) {
                     <li>未読込時にもガイド文を表示してレイアウト崩れを防止</li>
                     <li>出力設定を出力形式・出力方法・出力先の一体フォームへ統合</li>
                   </ul>
+                </article>
+                <article className="release-card">
+                  <div><strong>Ver.2.2.0</strong><span>4つの設定グループとファイル名設定の改善</span></div>
+                  <ul><li>出力設定とファイル名設定を分離し、4つの設定グループへ整理</li><li>メイン画面と詳細設定の両方からファイル名に使用する列を変更可能</li><li>列の選択順番号、連番の有無、桁数の直接入力と増減ボタンを追加</li><li>出力ファイル名の例をメイン画面へ表示</li></ul>
                 </article>
                 <article className="release-card release-card-previous">
                   <div>
@@ -727,23 +728,12 @@ export default function App() {
           <section className="output-card compact-output-card">
             <div className="group-heading"><span>3</span><h2>出力設定</h2></div>
             <div className="output-destination"><Picker kind="folder" title="出力先" path={outputPath} disabled={busy} onPick={chooseOutput} /></div>
-            <div className="compact-output-options">
-              <div className="output-field"><label>出力形式</label><Segmented value={settings.outputFormat} onChange={(value) => setSettings((current) => ({ ...current, outputFormat: value }))} items={[{ value: "word", label: "Word" }, { value: "pdf", label: "PDF" }]} /></div>
-              <div className="output-field"><label>出力方法</label><Segmented value={settings.outputMethod} onChange={(value) => setSettings((current) => ({ ...current, outputMethod: value }))} items={[{ value: "folder", label: "個別" }, { value: "merged", label: "結合" }, { value: "zip", label: "ZIP" }]} /></div>
-            </div>
+            <div className="compact-output-options"><div className="output-field"><label>出力形式</label><Segmented value={settings.outputFormat} onChange={(value) => setSettings((current) => ({ ...current, outputFormat: value }))} items={[{ value: "word", label: "Word" }, { value: "pdf", label: "PDF" }]} /></div><div className="output-field"><label>出力方法</label><Segmented value={settings.outputMethod} onChange={(value) => setSettings((current) => ({ ...current, outputMethod: value }))} items={[{ value: "folder", label: "個別" }, { value: "merged", label: "結合" }, { value: "zip", label: "ZIP" }]} /></div></div>
           </section>
-
           <section className="filename-card">
             <div className="group-heading"><span>4</span><h2>ファイル名設定</h2></div>
-            {!preview ? (
-              <div className="filename-empty-card"><span className="status-card-icon"><FileText size={18} /></span><div><strong>ファイル名に使用する列を選択</strong><small>置換データ読込後に列を選択できます</small></div></div>
-            ) : (
-              <div className="filename-columns-block"><div className="filename-columns-heading"><strong>ファイル名に使用する列</strong><button className="details-link" onClick={() => { setSettingsSection("filename"); setSettingsOpen(true); }}>詳細設定</button></div><div className="filename-columns-grid">{preview.columns.map((column) => { const order = settings.filenameKeys.indexOf(column); return <label key={column} className={order >= 0 ? "selected" : ""} title={column}><input type="checkbox" checked={order >= 0} onChange={() => toggleFilenameKey(column)} /><span className="selection-order">{order >= 0 ? order + 1 : ""}</span><span className="column-name">{column}</span></label>; })}</div></div>
-            )}
-            <div className="filename-card-footer">
-              <div className="serial-control-card"><label className="check"><input type="checkbox" checked={settings.addSerialNumber} disabled={settings.filenameKeys.length === 0} onChange={(event) => setSettings((current) => ({ ...current, addSerialNumber: event.target.checked }))} /> 通し番号を付ける</label><div className="digit-stepper"><span>桁数</span><button type="button" disabled={settings.serialDigits <= 1} onClick={() => setSettings((current) => ({ ...current, serialDigits: Math.max(1, current.serialDigits - 1) }))}>−</button><strong>{settings.serialDigits}</strong><button type="button" disabled={settings.serialDigits >= 6} onClick={() => setSettings((current) => ({ ...current, serialDigits: Math.min(6, current.serialDigits + 1) }))}>＋</button></div></div>
-              <div className="filename-example"><small>出力例</small><code>{templatePath ? exampleName : "テンプレート選択後に表示します"}</code></div>
-            </div>
+            {!preview ? <div className="filename-empty-card"><span className="status-card-icon"><FileText size={18} /></span><div><strong>ファイル名に使用する列を選択</strong><small>置換データ読込後に列を選択できます</small></div></div> : <div className="filename-columns-block"><div className="filename-columns-heading"><strong>ファイル名に使用する列</strong><button className="details-link" onClick={() => { setSettingsSection("filename"); setSettingsOpen(true); }}>詳細設定</button></div><div className="filename-columns-grid">{preview.columns.map((column) => { const order = settings.filenameKeys.indexOf(column); return <label key={column} className={order >= 0 ? "selected" : ""} title={column}><input type="checkbox" checked={order >= 0} onChange={() => toggleFilenameKey(column)} /><span className="selection-order">{order >= 0 ? order + 1 : ""}</span><span className="column-name">{column}</span></label>; })}</div></div>}
+            <div className="filename-card-footer"><div className="serial-control-card"><label className="check"><input type="checkbox" checked={settings.addSerialNumber} disabled={settings.filenameKeys.length === 0} onChange={(event) => setSettings((current) => ({ ...current, addSerialNumber: event.target.checked }))} /> 連番を付ける</label><div className="digit-stepper"><span>桁数：</span><input className="digit-input" type="number" min={1} max={6} value={settings.serialDigits} onChange={(event) => { const value = event.target.valueAsNumber; if (Number.isFinite(value)) setSettings((current) => ({ ...current, serialDigits: Math.min(6, Math.max(1, Math.trunc(value))) })); }} /><button type="button" disabled={settings.serialDigits <= 1} onClick={() => setSettings((current) => ({ ...current, serialDigits: Math.max(1, current.serialDigits - 1) }))}>−</button><button type="button" disabled={settings.serialDigits >= 6} onClick={() => setSettings((current) => ({ ...current, serialDigits: Math.min(6, current.serialDigits + 1) }))}>＋</button></div></div><div className="filename-example"><small>出力ファイル名の例</small><code>{templatePath ? exampleName : "テンプレート選択後に表示します"}</code></div></div>
           </section>
         </section>
 
@@ -830,7 +820,7 @@ export default function App() {
               </nav>
               <div className="settings-content">
                 {settingsSection === "filename" && <section className="setting-panel"><h3>ファイル名</h3>
-                  <div className="serial-row"><label className="check"><input type="checkbox" checked={settings.addSerialNumber} disabled={settings.filenameKeys.length === 0} onChange={(event) => setSettings((current) => ({ ...current, addSerialNumber: event.target.checked }))} /> 通し番号を付ける</label></div><div className="detail-digit-stepper"><span>通し番号の桁数</span><div className="digit-stepper"><button type="button" disabled={settings.serialDigits <= 1} onClick={() => setSettings((current) => ({ ...current, serialDigits: Math.max(1, current.serialDigits - 1) }))}>−</button><strong>{settings.serialDigits}</strong><button type="button" disabled={settings.serialDigits >= 6} onClick={() => setSettings((current) => ({ ...current, serialDigits: Math.min(6, current.serialDigits + 1) }))}>＋</button></div></div>
+                  <div className="serial-row"><label className="check"><input type="checkbox" checked={settings.addSerialNumber} disabled={settings.filenameKeys.length === 0} onChange={(event) => setSettings((current) => ({ ...current, addSerialNumber: event.target.checked }))} /> 連番を付ける</label></div><div className="detail-digit-stepper"><span>桁数：</span><div className="digit-stepper"><input className="digit-input" type="number" min={1} max={6} value={settings.serialDigits} onChange={(event) => { const value = event.target.valueAsNumber; if (Number.isFinite(value)) setSettings((current) => ({ ...current, serialDigits: Math.min(6, Math.max(1, Math.trunc(value))) })); }} /><button type="button" disabled={settings.serialDigits <= 1} onClick={() => setSettings((current) => ({ ...current, serialDigits: Math.max(1, current.serialDigits - 1) }))}>−</button><button type="button" disabled={settings.serialDigits >= 6} onClick={() => setSettings((current) => ({ ...current, serialDigits: Math.min(6, current.serialDigits + 1) }))}>＋</button></div></div>
                   {settings.filenameKeys.length===0 && <small className="setting-note">列が選択されていないため、通し番号は必須です。</small>}
                   <div className="setting-subhead"><strong>ファイル名に使用する列</strong><small>選択した順にファイル名へ追加します。</small></div>
                   {!preview ? <p className="muted-box">置換データを読み込むと列を選択できます。</p> : <><div className="column-choice-list">{preview.columns.map((column) => { const order = settings.filenameKeys.indexOf(column); return <label key={column} className={order >= 0 ? "selected" : ""}><input type="checkbox" checked={order >= 0} onChange={() => toggleFilenameKey(column)} /><span className="selection-order">{order >= 0 ? order + 1 : ""}</span><span className="column-name">{column}</span></label>; })}</div></>}
