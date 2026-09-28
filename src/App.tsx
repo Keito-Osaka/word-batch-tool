@@ -207,6 +207,15 @@ function HelpGuide({ onClose }: { onClose: () => void }) {
               <div className="help-section">
                 <h3>更新履歴</h3>
                 <article className="release-card">
+                  <div><strong>Ver.2.2.0</strong><span>4つの設定グループとファイル名設定の改善</span></div>
+                  <ul>
+                    <li>出力設定とファイル名設定を分離し、4つの設定グループへ整理</li>
+                    <li>メイン画面と詳細設定の両方からファイル名に使用する列を変更可能</li>
+                    <li>列の選択順番号、連番の有無、桁数の直接入力と増減ボタンを追加</li>
+                    <li>出力ファイル名の例をメイン画面へ表示</li>
+                  </ul>
+                </article>
+                <article className="release-card release-card-previous">
                   <div>
                     <strong>Ver.2.1.0</strong>
                     <span>UIレイアウトとアイコン更新</span>
@@ -217,10 +226,6 @@ function HelpGuide({ onClose }: { onClose: () => void }) {
                     <li>未読込時にもガイド文を表示してレイアウト崩れを防止</li>
                     <li>出力設定を出力形式・出力方法・出力先の一体フォームへ統合</li>
                   </ul>
-                </article>
-                <article className="release-card">
-                  <div><strong>Ver.2.2.0</strong><span>4つの設定グループとファイル名設定の改善</span></div>
-                  <ul><li>出力設定とファイル名設定を分離し、4つの設定グループへ整理</li><li>メイン画面と詳細設定の両方からファイル名に使用する列を変更可能</li><li>列の選択順番号、連番の有無、桁数の直接入力と増減ボタンを追加</li><li>出力ファイル名の例をメイン画面へ表示</li></ul>
                 </article>
                 <article className="release-card release-card-previous">
                   <div>
@@ -834,10 +839,22 @@ export default function App() {
                     <option value="selected_column_number_empty">指定列が空欄</option>
                     <option value="none">除外しない</option>
                   </select></label>
-                  {settings.rowExcludeMode.startsWith("selected_columns") && <><div className="setting-subhead"><strong>除外判定に使用する列</strong><small>{settings.rowExcludeMode === "selected_columns_any_empty" ? "どれか1つでも空欄なら除外" : "すべて空欄なら除外"}</small></div>{!preview ? <p className="muted-box">置換データを読み込むと列を選択できます。</p> : <div className="column-choice-list">{preview.columns.map(column => <label key={column} className={settings.rowExcludeColumns.includes(column) ? "selected" : ""}><input type="checkbox" checked={settings.rowExcludeColumns.includes(column)} onChange={()=>setSettings(c=>({ ...c, rowExcludeColumns: c.rowExcludeColumns.includes(column) ? c.rowExcludeColumns.filter(item=>item!==column) : [...c.rowExcludeColumns, column] }))} />{column}</label>)}</div>}</>}
+                  {settings.rowExcludeMode.startsWith("selected_columns") && <><div className="setting-subhead"><strong>除外判定に使用する列</strong><small>{settings.rowExcludeMode === "selected_columns_any_empty" ? "どれか1つでも空欄なら除外" : "すべて空欄なら除外"}</small></div>{!preview ? <p className="muted-box">置換データを読み込むと列を選択できます。</p> : <div className="column-choice-list">{preview.columns.map((column) => <label key={column} className={settings.rowExcludeColumns.includes(column) ? "selected" : ""} title={column}><input type="checkbox" checked={settings.rowExcludeColumns.includes(column)} onChange={()=>setSettings(c=>({ ...c, rowExcludeColumns: c.rowExcludeColumns.includes(column) ? c.rowExcludeColumns.filter(item=>item!==column) : [...c.rowExcludeColumns, column] }))} /><span className="selection-order" /><span className="column-name">{column}</span></label>)}</div>}</>}
                   <div className="setting-summary"><strong>現在の除外条件</strong><span>{settings.excludeExampleRows ? "記入例を除外" : "記入例も使用"} / {settings.rowExcludeMode === "none" ? "除外なし" : settings.rowExcludeMode}</span></div>
                 </section>}
-                {settingsSection === "numeric" && <section className="setting-panel"><h3>数値の整形</h3><label className="check"><input type="checkbox" checked={settings.formatAmountWithComma} onChange={(e)=>setSettings(c=>({...c,formatAmountWithComma:e.target.checked}))} /> 数値をカンマ区切りにする</label><div className="amount-keyword-editor"><div className="amount-keyword-heading"><strong>対象キーワード</strong><button onClick={resetAmountKeywords}>初期化</button></div>{settings.amountIncludeKeywords.map(keyword => <span key={keyword} className="keyword-pill">{keyword}<button onClick={() => removeAmountKeyword(keyword)} aria-label={`${keyword}を削除`}>×</button></span>)}<div className="amount-keyword-entry"><input value={amountKeywordInput} onChange={(e)=>setAmountKeywordInput(e.target.value)} placeholder="例: 支給額" /><button onClick={addAmountKeyword}>追加</button></div></div></section>}
+                {settingsSection === "numeric" && (
+                  <section className="setting-panel">
+                    <h3>数値の整形</h3>
+                    <label className="check"><input type="checkbox" checked={settings.formatAmountWithComma} onChange={(e) => setSettings((current) => ({ ...current, formatAmountWithComma: e.target.checked }))} /> 数値をカンマ区切りにする</label>
+                    <div className={`amount-keyword-editor ${settings.formatAmountWithComma ? "" : "disabled"}`}>
+                      <div className="amount-keyword-heading"><div><strong>対象キーワード</strong><small>列名に含まれる語句を登録します</small></div><button type="button" disabled={!settings.formatAmountWithComma} onClick={resetAmountKeywords}>初期値に戻す</button></div>
+                      <div className="keyword-tags" aria-label="登録済みの対象キーワード">
+                        {settings.amountIncludeKeywords.length === 0 ? <span className="keyword-empty">キーワードは登録されていません</span> : settings.amountIncludeKeywords.map((keyword) => (<span key={keyword} className="keyword-tag">{keyword}<button type="button" disabled={!settings.formatAmountWithComma} onClick={() => removeAmountKeyword(keyword)} aria-label={`${keyword}を削除`}>×</button></span>))}
+                      </div>
+                      <div className="keyword-add-row"><input type="text" disabled={!settings.formatAmountWithComma} value={amountKeywordInput} onChange={(e) => setAmountKeywordInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addAmountKeyword(); } }} placeholder="例：支給額" /><button type="button" disabled={!settings.formatAmountWithComma || !amountKeywordInput.trim()} onClick={addAmountKeyword}>追加</button></div>
+                    </div>
+                  </section>
+                )}
                 {settingsSection === "pdf" && <section className="setting-panel"><h3>PDF</h3><label className="check"><input type="checkbox" checked={settings.fastPdfSplitEnabled} onChange={(e)=>setSettings(c=>({...c,fastPdfSplitEnabled:e.target.checked}))} /> PDF個別出力時に高速分割を使用する</label></section>}
               </div>
             </div>
