@@ -368,3 +368,33 @@ button:focus-visible,input:focus-visible,select:focus-visible,.table-scroll:focu
 .dark .amount-keyword-editor{background:rgba(118,118,128,.07)}
 .dark .keyword-tags,.dark .keyword-add-row input{background:rgba(28,28,30,.72)}
 @media(prefers-reduced-motion:reduce){.amount-keyword-editor{transition:none!important}}
+
+/* Direct links to the relevant detail-settings section */
+.group-heading .group-settings-link{
+  margin-left:auto;
+  padding:4px 7px;
+  border:0;
+  border-radius:8px;
+  background:transparent;
+  color:var(--blue);
+  font-size:10px;
+  font-weight:650;
+  line-height:1.2;
+  white-space:nowrap;
+  cursor:pointer;
+  transition:background-color 150ms var(--ease-out),box-shadow 150ms var(--ease-out),transform 100ms var(--ease-out);
+}
+.group-heading .group-settings-link:hover:not(:disabled){
+  background:rgba(0,122,255,.09);
+  box-shadow:0 0 0 1px var(--interactive-hover-border),var(--interactive-hover-shadow);
+  transform:translateY(-1px);
+}
+.dark .group-heading .group-settings-link:hover:not(:disabled){
+  background:rgba(10,132,255,.14);
+  box-shadow:0 0 0 1px var(--interactive-hover-border-dark),var(--interactive-hover-shadow-dark);
+}
+.group-heading .group-settings-link:disabled{opacity:.45;cursor:not-allowed}
+@media(prefers-reduced-motion:reduce){
+  .group-heading .group-settings-link{transition:none!important}
+  .group-heading .group-settings-link:hover{transform:none!important}
+}

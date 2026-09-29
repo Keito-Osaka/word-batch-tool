@@ -41,7 +41,7 @@ const defaults: Settings = {
   serialDigits: 2,
   formatAmountWithComma: true,
   amountIncludeKeywords: DEFAULT_AMOUNT_INCLUDE_KEYWORDS,
-  rowExcludeMode: "selected_columns_any_empty",
+  rowExcludeMode: "none",
   excludeExampleRows: true,
   rowExcludeColumns: [],
   targetColumnNumber: 2,
@@ -60,9 +60,12 @@ const loadSettings = (): Settings => {
     const amountIncludeKeywords = Array.isArray(saved.amountIncludeKeywords)
       ? saved.amountIncludeKeywords
       : DEFAULT_AMOUNT_INCLUDE_KEYWORDS;
-    const oldMode = saved.rowExcludeMode === "selected_column_number_empty" ? "selected_columns_any_empty" : saved.rowExcludeMode;
+    const migratedOldMode = saved.rowExcludeMode === "selected_column_number_empty" ? "any_empty" : saved.rowExcludeMode;
+    const exclusionDefaultMigrated = localStorage.getItem("wordBatchExcludeDefaultV3") === "1";
+    const rowExcludeMode = exclusionDefaultMigrated ? (migratedOldMode ?? defaults.rowExcludeMode) : "none";
+    localStorage.setItem("wordBatchExcludeDefaultV3", "1");
     const rowExcludeColumns = Array.isArray(saved.rowExcludeColumns) ? saved.rowExcludeColumns : [];
-    return { ...defaults, ...saved, rowExcludeMode: oldMode ?? defaults.rowExcludeMode, rowExcludeColumns,
+    return { ...defaults, ...saved, rowExcludeMode, rowExcludeColumns,
       excludeExampleRows: saved.excludeExampleRows ?? true, filenameKeys, addSerialNumber, amountIncludeKeywords };
   } catch {
     return defaults;
@@ -707,7 +710,7 @@ export default function App() {
           </section>
 
           <section className="input-group">
-            <div className="group-heading"><span>2</span><h2>置換データ設定</h2></div>
+            <div className="group-heading"><span>2</span><h2>置換データ設定</h2><button type="button" className="group-settings-link" disabled={busy} onClick={() => { setSettingsSection("exclude"); setSettingsOpen(true); }}>行の除外設定</button></div>
             <Picker kind="excel" title="置換データ" path={dataPath} disabled={busy} meta={dataLoadState === "queued" ? "セットアップ完了後に確認します" : dataLoadState === "running" ? "置換データを確認しています…" : dataLoadState === "ready" ? "読み込みが完了しました" : undefined} onPick={chooseData} />
             {preview ? (
               <button className="preview-link" onClick={() => { setPreviewTab("included"); setPreviewOpen(true); }}>
@@ -736,8 +739,8 @@ export default function App() {
             <div className="compact-output-options"><div className="output-field"><label>出力形式</label><Segmented value={settings.outputFormat} onChange={(value) => setSettings((current) => ({ ...current, outputFormat: value }))} items={[{ value: "word", label: "Word" }, { value: "pdf", label: "PDF" }]} /></div><div className="output-field"><label>出力方法</label><Segmented value={settings.outputMethod} onChange={(value) => setSettings((current) => ({ ...current, outputMethod: value }))} items={[{ value: "folder", label: "個別" }, { value: "merged", label: "結合" }, { value: "zip", label: "ZIP" }]} /></div></div>
           </section>
           <section className="filename-card">
-            <div className="group-heading"><span>4</span><h2>ファイル名設定</h2></div>
-            {!preview ? <div className="filename-empty-card"><span className="status-card-icon"><FileText size={18} /></span><div><strong>ファイル名に使用する列を選択</strong><small>置換データ読込後に列を選択できます</small></div></div> : <div className="filename-columns-block"><div className="filename-columns-heading"><strong>ファイル名に使用する列</strong><button className="details-link" onClick={() => { setSettingsSection("filename"); setSettingsOpen(true); }}>詳細設定</button></div><div className="filename-columns-grid">{preview.columns.map((column) => { const order = settings.filenameKeys.indexOf(column); return <label key={column} className={order >= 0 ? "selected" : ""} title={column}><input type="checkbox" checked={order >= 0} onChange={() => toggleFilenameKey(column)} /><span className="selection-order">{order >= 0 ? order + 1 : ""}</span><span className="column-name">{column}</span></label>; })}</div></div>}
+            <div className="group-heading"><span>4</span><h2>ファイル名設定</h2><button type="button" className="group-settings-link" disabled={busy} onClick={() => { setSettingsSection("filename"); setSettingsOpen(true); }}>ファイル名設定</button></div>
+            {!preview ? <div className="filename-empty-card"><span className="status-card-icon"><FileText size={18} /></span><div><strong>ファイル名に使用する列を選択</strong><small>置換データ読込後に列を選択できます</small></div></div> : <div className="filename-columns-block"><div className="filename-columns-heading"><strong>ファイル名に使用する列</strong></div><div className="filename-columns-grid">{preview.columns.map((column) => { const order = settings.filenameKeys.indexOf(column); return <label key={column} className={order >= 0 ? "selected" : ""} title={column}><input type="checkbox" checked={order >= 0} onChange={() => toggleFilenameKey(column)} /><span className="selection-order">{order >= 0 ? order + 1 : ""}</span><span className="column-name">{column}</span></label>; })}</div></div>}
             <div className="filename-card-footer"><div className="serial-control-card"><label className="check"><input type="checkbox" checked={settings.addSerialNumber} disabled={settings.filenameKeys.length === 0} onChange={(event) => setSettings((current) => ({ ...current, addSerialNumber: event.target.checked }))} /> 連番を付ける</label><div className="digit-stepper"><span>桁数：</span><input className="digit-input" type="number" min={1} max={6} value={settings.serialDigits} onChange={(event) => { const value = event.target.valueAsNumber; if (Number.isFinite(value)) setSettings((current) => ({ ...current, serialDigits: Math.min(6, Math.max(1, Math.trunc(value))) })); }} /><button type="button" disabled={settings.serialDigits <= 1} onClick={() => setSettings((current) => ({ ...current, serialDigits: Math.max(1, current.serialDigits - 1) }))}>−</button><button type="button" disabled={settings.serialDigits >= 6} onClick={() => setSettings((current) => ({ ...current, serialDigits: Math.min(6, current.serialDigits + 1) }))}>＋</button></div></div><div className="filename-example"><small>出力ファイル名の例</small><code>{templatePath ? exampleName : "テンプレート選択後に表示します"}</code></div></div>
           </section>
         </section>
@@ -834,13 +837,13 @@ export default function App() {
                 {settingsSection === "exclude" && <section className="setting-panel"><h3>行の除外</h3>
                   <label className="check example-toggle"><input type="checkbox" checked={settings.excludeExampleRows} onChange={(e)=>setSettings(c=>({...c,excludeExampleRows:e.target.checked}))} /> 記入例を除外する</label>
                   <label className="field-label">空欄による除外条件<select value={settings.rowExcludeMode} onChange={(e)=>setSettings(c=>({...c,rowExcludeMode:e.target.value as Settings["rowExcludeMode"]}))}>
+                    <option value="none">除外しない</option>
+                    <option value="any_empty">全ての列のうち、どれか1つでも空欄</option>
                     <option value="selected_columns_any_empty">選択した列のどれか1つでも空欄</option>
                     <option value="selected_columns_all_empty">選択した列がすべて空欄</option>
-                    <option value="selected_column_number_empty">指定列が空欄</option>
-                    <option value="none">除外しない</option>
                   </select></label>
                   {settings.rowExcludeMode.startsWith("selected_columns") && <><div className="setting-subhead"><strong>除外判定に使用する列</strong><small>{settings.rowExcludeMode === "selected_columns_any_empty" ? "どれか1つでも空欄なら除外" : "すべて空欄なら除外"}</small></div>{!preview ? <p className="muted-box">置換データを読み込むと列を選択できます。</p> : <div className="column-choice-list">{preview.columns.map((column) => <label key={column} className={settings.rowExcludeColumns.includes(column) ? "selected" : ""} title={column}><input type="checkbox" checked={settings.rowExcludeColumns.includes(column)} onChange={()=>setSettings(c=>({ ...c, rowExcludeColumns: c.rowExcludeColumns.includes(column) ? c.rowExcludeColumns.filter(item=>item!==column) : [...c.rowExcludeColumns, column] }))} /><span className="selection-order" /><span className="column-name">{column}</span></label>)}</div>}</>}
-                  <div className="setting-summary"><strong>現在の除外条件</strong><span>{settings.excludeExampleRows ? "記入例を除外" : "記入例も使用"} / {settings.rowExcludeMode === "none" ? "除外なし" : settings.rowExcludeMode}</span></div>
+                  <div className="setting-summary"><strong>現在の除外条件</strong><span>{settings.excludeExampleRows ? "記入例を除外" : "記入例も使用"} / {settings.rowExcludeMode === "none" ? "空欄による除外なし" : settings.rowExcludeMode === "any_empty" ? "全ての列のうち、どれか1つでも空欄" : settings.rowExcludeMode === "selected_columns_any_empty" ? "選択した列のどれか1つでも空欄" : "選択した列がすべて空欄"}</span></div>
                 </section>}
                 {settingsSection === "numeric" && (
                   <section className="setting-panel">

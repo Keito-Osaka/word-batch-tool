@@ -18,7 +18,7 @@ DEFAULT_AMOUNT_INCLUDE_KEYWORDS = [
 DEFAULT_AMOUNT_EXCLUDE_KEYWORDS = [
     "金融機関CD", "支店CD", "預金種別", "口座番号", "人数", "学年", "CD", "コード",
 ]
-DEFAULT_ROW_EXCLUDE_MODE = "any_empty_except_first"
+DEFAULT_ROW_EXCLUDE_MODE = "none"
 DEFAULT_ROW_EXCLUDE_TARGET_COLUMN_NUMBER = 1
 DEFAULT_EXCLUDE_EXAMPLE_ROWS = True
 # =====================================================
