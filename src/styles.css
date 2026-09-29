@@ -369,29 +369,43 @@ button:focus-visible,input:focus-visible,select:focus-visible,.table-scroll:focu
 .dark .keyword-tags,.dark .keyword-add-row input{background:rgba(28,28,30,.72)}
 @media(prefers-reduced-motion:reduce){.amount-keyword-editor{transition:none!important}}
 
-/* Direct links to the relevant detail-settings section */
+/* Direct links to detail settings: bordered at rest, matching picker controls */
 .group-heading .group-settings-link{
   margin-left:auto;
-  padding:4px 7px;
-  border:0;
-  border-radius:8px;
-  background:transparent;
+  min-height:28px;
+  padding:5px 9px;
+  border:1px solid var(--separator);
+  border-radius:9px;
+  background:var(--surface-solid);
   color:var(--blue);
+  box-shadow:0 1px 2px rgba(0,0,0,.025);
   font-size:10px;
   font-weight:650;
   line-height:1.2;
   white-space:nowrap;
   cursor:pointer;
-  transition:background-color 150ms var(--ease-out),box-shadow 150ms var(--ease-out),transform 100ms var(--ease-out);
+  transition:border-color 150ms var(--ease-out),box-shadow 150ms var(--ease-out),transform 100ms var(--ease-out),background-color 150ms var(--ease-out);
 }
 .group-heading .group-settings-link:hover:not(:disabled){
-  background:rgba(0,122,255,.09);
-  box-shadow:0 0 0 1px var(--interactive-hover-border),var(--interactive-hover-shadow);
+  border-color:var(--interactive-hover-border);
+  background:rgba(0,122,255,.055);
+  box-shadow:var(--interactive-hover-shadow);
   transform:translateY(-1px);
 }
+.group-heading .group-settings-link:focus-visible{
+  outline:none;
+  border-color:rgba(0,122,255,.62);
+  box-shadow:0 0 0 3px rgba(0,122,255,.16),var(--interactive-hover-shadow);
+}
+.dark .group-heading .group-settings-link{
+  border-color:rgba(255,255,255,.14);
+  background:rgba(44,44,46,.72);
+  box-shadow:0 1px 2px rgba(0,0,0,.18);
+}
 .dark .group-heading .group-settings-link:hover:not(:disabled){
-  background:rgba(10,132,255,.14);
-  box-shadow:0 0 0 1px var(--interactive-hover-border-dark),var(--interactive-hover-shadow-dark);
+  border-color:var(--interactive-hover-border-dark);
+  background:rgba(10,132,255,.12);
+  box-shadow:var(--interactive-hover-shadow-dark);
 }
 .group-heading .group-settings-link:disabled{opacity:.45;cursor:not-allowed}
 @media(prefers-reduced-motion:reduce){
