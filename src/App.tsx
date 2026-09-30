@@ -12,11 +12,9 @@ import {
   FileSpreadsheet,
   FileText,
   FolderOpen,
-  Moon,
   Play,
   RotateCcw,
   Settings as SettingsIcon,
-  Sun,
   Trash2,
   X,
 } from "lucide-react";
@@ -296,10 +294,19 @@ function Confirmation({
   );
 }
 
+type ThemeName = "light" | "dark" | "sepia" | "mist";
+
+const loadTheme = (): ThemeName => {
+  const saved = localStorage.getItem("wordBatchTheme");
+  if (saved === "light" || saved === "dark" || saved === "sepia" || saved === "mist") return saved;
+  const legacyDark = localStorage.getItem("wordBatchDarkMode") === "true";
+  return legacyDark ? "dark" : "light";
+};
+
 export default function App() {
-  const [dark, setDark] = useState(false);
+  const [theme, setTheme] = useState<ThemeName>(loadTheme);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [settingsSection, setSettingsSection] = useState<"filename" | "exclude" | "numeric" | "pdf">("filename");
+  const [settingsSection, setSettingsSection] = useState<"appearance" | "filename" | "exclude" | "numeric" | "pdf">("filename");
   const [helpOpen, setHelpOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewTab, setPreviewTab] = useState<"included" | "excluded">("included");
@@ -332,6 +339,10 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem("wordBatchSettings", JSON.stringify(settings));
   }, [settings]);
+
+  useEffect(() => {
+    localStorage.setItem("wordBatchTheme", theme);
+  }, [theme]);
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
@@ -653,7 +664,7 @@ export default function App() {
     : preview?.excluded_rows.map((item, index) => ({ key: `e-${index}`, number: item.source_row_number, row: item.row, reason: item.reason })) || [];
 
   return (
-    <div className={dark ? "app dark" : "app"}>
+    <div className={`app theme-${theme}${theme === "dark" ? " dark" : ""}`}>
       {dragActive && <div className="native-drop-overlay" aria-live="polite"><div className="native-drop-panel"><span className="drop-symbol"><FileSpreadsheet size={28} /></span><strong>ここにファイルをドロップ</strong><small>テンプレート、置換データ、出力先をまとめて選択できます</small></div></div>}
       {dropNotice && <div className="drop-toast"><Check size={15} />{dropNotice}</div>}
       <header>
@@ -668,9 +679,6 @@ export default function App() {
         <div className="header-actions">
           <span className={`readiness ${warmupState}`}><i />{warmupState === "ready" ? "準備完了" : warmupState === "running" ? "準備中" : "要確認"}</span>
           <button className="icon-button" disabled={busy} onClick={() => setHelpOpen(true)} aria-label="使い方を確認" title="使い方を確認"><CircleHelp size={18} /></button>
-          <button className="icon-button" onClick={() => setDark((value) => !value)} aria-label="テーマ切替" title="テーマを切り替え">
-            {dark ? <Sun size={18} /> : <Moon size={18} />}
-          </button>
           <button className="icon-button" disabled={busy} onClick={() => setSettingsOpen(true)} aria-label="設定" title="設定">
             <SettingsIcon size={18} />
           </button>
@@ -821,12 +829,33 @@ export default function App() {
             <div className="drawer-head"><div><h2 id="settings-title">詳細設定</h2><p>変更内容は自動保存されます。</p></div><button className="icon-button" onClick={() => setSettingsOpen(false)} aria-label="詳細設定を閉じる"><X size={18} /></button></div>
             <div className="settings-layout">
               <nav className="settings-nav">
+                <button className={settingsSection === "appearance" ? "active" : ""} onClick={() => setSettingsSection("appearance")}>テーマ</button>
                 <button className={settingsSection === "filename" ? "active" : ""} onClick={() => setSettingsSection("filename")}>ファイル名</button>
                 <button className={settingsSection === "exclude" ? "active" : ""} onClick={() => setSettingsSection("exclude")}>行の除外</button>
                 <button className={settingsSection === "numeric" ? "active" : ""} onClick={() => setSettingsSection("numeric")}>数値の整形</button>
                 <button className={settingsSection === "pdf" ? "active" : ""} onClick={() => setSettingsSection("pdf")}>PDF</button>
               </nav>
               <div className="settings-content">
+                {settingsSection === "appearance" && (
+                  <section className="setting-panel">
+                    <h3>カラーテーマ</h3>
+                    <p className="theme-description">画面の配色を選択します。選択したテーマは次回起動時も維持されます。</p>
+                    <div className="theme-choice-grid">
+                      {[
+                        { value: "light", label: "ライト", detail: "明るく標準的な配色", colors: ["#f5f5f7", "#ffffff", "#007aff"] },
+                        { value: "dark", label: "ダーク", detail: "暗い背景と白い影", colors: ["#0c0c0e", "#1c1c1e", "#f5f5f7"] },
+                        { value: "sepia", label: "セピア", detail: "温かく落ち着いた配色", colors: ["#f3eee4", "#fffaf0", "#9a641f"] },
+                        { value: "mist", label: "ミスト", detail: "淡い青灰色の配色", colors: ["#edf3f7", "#f9fcfe", "#3979a8"] },
+                      ].map((item) => (
+                        <button type="button" key={item.value} className={`theme-choice ${theme === item.value ? "selected" : ""}`} onClick={() => setTheme(item.value as ThemeName)} aria-pressed={theme === item.value}>
+                          <span className="theme-swatch" aria-hidden="true">{item.colors.map((color) => <i key={color} style={{ background: color }} />)}</span>
+                          <span><strong>{item.label}</strong><small>{item.detail}</small></span>
+                          <span className="theme-check">{theme === item.value ? "✓" : ""}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </section>
+                )}
                 {settingsSection === "filename" && <section className="setting-panel"><h3>ファイル名</h3>
                   <div className="serial-row"><label className="check"><input type="checkbox" checked={settings.addSerialNumber} disabled={settings.filenameKeys.length === 0} onChange={(event) => setSettings((current) => ({ ...current, addSerialNumber: event.target.checked }))} /> 連番を付ける</label></div><div className="detail-digit-stepper"><span>桁数：</span><div className="digit-stepper"><input className="digit-input" type="number" min={1} max={6} value={settings.serialDigits} onChange={(event) => { const value = event.target.valueAsNumber; if (Number.isFinite(value)) setSettings((current) => ({ ...current, serialDigits: Math.min(6, Math.max(1, Math.trunc(value))) })); }} /><button type="button" disabled={settings.serialDigits <= 1} onClick={() => setSettings((current) => ({ ...current, serialDigits: Math.max(1, current.serialDigits - 1) }))}>−</button><button type="button" disabled={settings.serialDigits >= 6} onClick={() => setSettings((current) => ({ ...current, serialDigits: Math.min(6, current.serialDigits + 1) }))}>＋</button></div></div>
                   {settings.filenameKeys.length===0 && <small className="setting-note">列が選択されていないため、通し番号は必須です。</small>}
