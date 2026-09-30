@@ -299,8 +299,7 @@ type ThemeName = "light" | "dark" | "sepia" | "mist";
 const loadTheme = (): ThemeName => {
   const saved = localStorage.getItem("wordBatchTheme");
   if (saved === "light" || saved === "dark" || saved === "sepia" || saved === "mist") return saved;
-  const legacyDark = localStorage.getItem("wordBatchDarkMode") === "true";
-  return legacyDark ? "dark" : "light";
+  return localStorage.getItem("wordBatchDarkMode") === "true" ? "dark" : "light";
 };
 
 export default function App() {
@@ -340,9 +339,7 @@ export default function App() {
     localStorage.setItem("wordBatchSettings", JSON.stringify(settings));
   }, [settings]);
 
-  useEffect(() => {
-    localStorage.setItem("wordBatchTheme", theme);
-  }, [theme]);
+  useEffect(() => { localStorage.setItem("wordBatchTheme", theme); }, [theme]);
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
