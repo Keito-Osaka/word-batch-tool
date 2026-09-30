@@ -295,13 +295,7 @@ function Confirmation({
 }
 
 type ThemeName = "light" | "dark" | "sepia" | "mist";
-
-const loadTheme = (): ThemeName => {
-  const saved = localStorage.getItem("wordBatchTheme");
-  if (saved === "light" || saved === "dark" || saved === "sepia" || saved === "mist") return saved;
-  return localStorage.getItem("wordBatchDarkMode") === "true" ? "dark" : "light";
-};
-
+const loadTheme = (): ThemeName => { const x=localStorage.getItem("wordBatchTheme"); return x === "dark" || x === "sepia" || x === "mist" || x === "light" ? x : "light"; };
 export default function App() {
   const [theme, setTheme] = useState<ThemeName>(loadTheme);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -338,7 +332,6 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem("wordBatchSettings", JSON.stringify(settings));
   }, [settings]);
-
   useEffect(() => { localStorage.setItem("wordBatchTheme", theme); }, [theme]);
 
   useEffect(() => {
@@ -833,26 +826,7 @@ export default function App() {
                 <button className={settingsSection === "pdf" ? "active" : ""} onClick={() => setSettingsSection("pdf")}>PDF</button>
               </nav>
               <div className="settings-content">
-                {settingsSection === "appearance" && (
-                  <section className="setting-panel">
-                    <h3>カラーテーマ</h3>
-                    <p className="theme-description">画面の配色を選択します。選択したテーマは次回起動時も維持されます。</p>
-                    <div className="theme-choice-grid">
-                      {[
-                        { value: "light", label: "ライト", detail: "明るく標準的な配色", colors: ["#f5f5f7", "#ffffff", "#007aff"] },
-                        { value: "dark", label: "ダーク", detail: "暗い背景と白い影", colors: ["#0c0c0e", "#1c1c1e", "#f5f5f7"] },
-                        { value: "sepia", label: "セピア", detail: "温かく落ち着いた配色", colors: ["#f3eee4", "#fffaf0", "#9a641f"] },
-                        { value: "mist", label: "ミスト", detail: "淡い青灰色の配色", colors: ["#edf3f7", "#f9fcfe", "#3979a8"] },
-                      ].map((item) => (
-                        <button type="button" key={item.value} className={`theme-choice ${theme === item.value ? "selected" : ""}`} onClick={() => setTheme(item.value as ThemeName)} aria-pressed={theme === item.value}>
-                          <span className="theme-swatch" aria-hidden="true">{item.colors.map((color) => <i key={color} style={{ background: color }} />)}</span>
-                          <span><strong>{item.label}</strong><small>{item.detail}</small></span>
-                          <span className="theme-check">{theme === item.value ? "✓" : ""}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </section>
-                )}
+                {settingsSection === "appearance" && (<section className="setting-panel"><h3>カラーテーマ</h3><p className="theme-description">画面の配色を選択します。選択したテーマは次回起動時も維持されます。</p><div className="theme-choice-grid">{[{value:"light",label:"ライト",detail:"明るく標準的な配色",colors:["#f5f5f7","#fff","#007aff"]},{value:"dark",label:"ダーク",detail:"暗い背景と白い影",colors:["#0c0c0e","#1c1c1e","#f5f5f7"]},{value:"sepia",label:"セピア",detail:"温かく落ち着いた配色",colors:["#f3eee4","#fffaf0","#9a641f"]},{value:"mist",label:"ミスト",detail:"淡い青灰色の配色",colors:["#edf3f7","#f9fcfe","#3979a8"]}].map(item=><button type="button" key={item.value} className={`theme-choice ${theme===item.value?"selected":""}`} onClick={()=>setTheme(item.value as ThemeName)}><span className="theme-swatch">{item.colors.map(color=><i key={color} style={{background:color}} />)}</span><span><strong>{item.label}</strong><small>{item.detail}</small></span><span className="theme-check">{theme===item.value?"✓":""}</span></button>)}</div></section>)}
                 {settingsSection === "filename" && <section className="setting-panel"><h3>ファイル名</h3>
                   <div className="serial-row"><label className="check"><input type="checkbox" checked={settings.addSerialNumber} disabled={settings.filenameKeys.length === 0} onChange={(event) => setSettings((current) => ({ ...current, addSerialNumber: event.target.checked }))} /> 連番を付ける</label></div><div className="detail-digit-stepper"><span>桁数：</span><div className="digit-stepper"><input className="digit-input" type="number" min={1} max={6} value={settings.serialDigits} onChange={(event) => { const value = event.target.valueAsNumber; if (Number.isFinite(value)) setSettings((current) => ({ ...current, serialDigits: Math.min(6, Math.max(1, Math.trunc(value))) })); }} /><button type="button" disabled={settings.serialDigits <= 1} onClick={() => setSettings((current) => ({ ...current, serialDigits: Math.max(1, current.serialDigits - 1) }))}>−</button><button type="button" disabled={settings.serialDigits >= 6} onClick={() => setSettings((current) => ({ ...current, serialDigits: Math.min(6, current.serialDigits + 1) }))}>＋</button></div></div>
                   {settings.filenameKeys.length===0 && <small className="setting-note">列が選択されていないため、通し番号は必須です。</small>}
