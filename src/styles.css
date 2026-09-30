@@ -412,3 +412,56 @@ button:focus-visible,input:focus-visible,select:focus-visible,.table-scroll:focu
   .group-heading .group-settings-link{transition:none!important}
   .group-heading .group-settings-link:hover{transform:none!important}
 }
+
+/* Dark mode uses neutral white shadows rather than dark or blue-tinted shadows. */
+.dark{
+  --interactive-hover-shadow-dark:
+    0 0 0 1px rgba(255,255,255,.18),
+    0 10px 28px rgba(255,255,255,.13);
+}
+.dark .picker{
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,.055),
+    0 4px 14px rgba(255,255,255,.035);
+}
+.dark .picker:hover:not(:disabled){
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,.20),
+    0 10px 28px rgba(255,255,255,.14);
+}
+.dark .common-card:hover:not(:disabled),
+.dark .preview-link:hover:not(:disabled),
+.dark .icon-button:hover:not(:disabled),
+.dark .run-actions button:not(.primary):hover:not(:disabled),
+.dark .settings-actions>button:hover:not(:disabled),
+.dark .help-actions>button:hover:not(:disabled),
+.dark .common-actions>button:hover:not(:disabled),
+.dark .digit-stepper button:hover:not(:disabled){
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,.20),
+    0 10px 28px rgba(255,255,255,.14)!important;
+}
+.dark .details-link:hover:not(:disabled){
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,.20),
+    0 10px 28px rgba(255,255,255,.14);
+}
+.dark .group-heading .group-settings-link{
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,.07),
+    0 4px 14px rgba(255,255,255,.035);
+}
+.dark .group-heading .group-settings-link:hover:not(:disabled){
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,.20),
+    0 10px 28px rgba(255,255,255,.14);
+}
+.dark .group-heading .group-settings-link:focus-visible,
+.dark .icon-button:focus-visible,
+.dark .picker:focus-visible,
+.dark .common-card:focus-visible,
+.dark .preview-link:focus-visible{
+  box-shadow:
+    0 0 0 3px rgba(255,255,255,.18),
+    0 10px 28px rgba(255,255,255,.14)!important;
+}
