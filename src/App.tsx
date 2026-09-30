@@ -295,7 +295,7 @@ function Confirmation({
 }
 
 type ThemeName = "light" | "dark" | "sepia" | "mist";
-const loadTheme = (): ThemeName => { const x=localStorage.getItem("wordBatchTheme"); return x === "dark" || x === "sepia" || x === "mist" || x === "light" ? x : "light"; };
+const loadTheme = (): ThemeName => { const value = localStorage.getItem("wordBatchTheme"); return value === "dark" || value === "sepia" || value === "mist" || value === "light" ? value : "light"; };
 export default function App() {
   const [theme, setTheme] = useState<ThemeName>(loadTheme);
   const [settingsOpen, setSettingsOpen] = useState(false);
