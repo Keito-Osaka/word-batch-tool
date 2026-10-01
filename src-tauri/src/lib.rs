@@ -1,5 +1,7 @@
+use serde::Deserialize;
 use serde_json::Value;
 use std::{
+    fs,
     io::{BufRead, BufReader, Read, Write},
     path::{Path, PathBuf},
     process::{Command, Stdio},
@@ -160,6 +162,57 @@ async fn generate_documents(app: AppHandle, request: Value) -> Result<Value, Str
         .map_err(|e| format!("文書生成処理の実行に失敗しました: {e}"))?
 }
 
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct DocumentNumberRecord {
+    version: u32,
+    document_number: String,
+    source: String,
+    captured_at: String,
+}
+
+#[tauri::command]
+fn read_document_number() -> Result<Value, String> {
+    let local_app_data = std::env::var_os("LOCALAPPDATA")
+        .ok_or_else(|| "文書番号の保存先を取得できませんでした。".to_string())?;
+    let path = PathBuf::from(local_app_data)
+        .join("WordBatchTool")
+        .join("integration")
+        .join("document-number.json");
+
+    if !path.exists() {
+        return Err(
+            "文書番号の連携データがありません。行政文書管理システムで文書番号を取得し、Edge拡張機能の「アプリへ送信」を押してください。"
+                .to_string(),
+        );
+    }
+
+    let bytes = fs::read(&path)
+        .map_err(|e| format!("文書番号の連携データを読み取れませんでした: {e}"))?;
+    let record: DocumentNumberRecord = serde_json::from_slice(&bytes)
+        .map_err(|e| format!("文書番号の連携データが壊れています。Edge拡張機能から再送信してください: {e}"))?;
+
+    if record.version != 1 {
+        return Err("対応していない文書番号データです。Edge拡張機能から再送信してください。".to_string());
+    }
+    let document_number = record.document_number.trim();
+    if document_number.is_empty() || document_number.chars().count() > 100 {
+        return Err("文書番号の形式が正しくありません。Edge拡張機能から再送信してください。".to_string());
+    }
+    if record.source != "panfocus" {
+        return Err("文書番号の取得元を確認できませんでした。".to_string());
+    }
+
+    Ok(serde_json::json!({
+        "version": record.version,
+        "documentNumber": document_number,
+        "source": record.source,
+        "capturedAt": record.captured_at,
+        "path": path.to_string_lossy(),
+    }))
+}
+
 #[tauri::command]
 fn classify_dropped_paths(paths: Vec<String>) -> Value {
     let mut template: Option<String> = None;
@@ -253,7 +306,8 @@ pub fn run() {
             inspect_data,
             generate_documents,
             classify_dropped_paths,
-            open_output_folder
+            open_output_folder,
+            read_document_number
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

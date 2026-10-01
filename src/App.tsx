@@ -16,12 +16,13 @@ import {
   RotateCcw,
   Settings as SettingsIcon,
   Trash2,
+  Download,
   X,
 } from "lucide-react";
-import type { DataPreview, DroppedPathClassification, GenerateResult, GenerationProgress, Settings, TemplateInspection, CommonValues } from "./types";
+import type { DataPreview, DroppedPathClassification, GenerateResult, GenerationProgress, Settings, TemplateInspection, CommonValues, DocumentNumberRecord } from "./types";
 import appIconUrl from "../src-tauri/icons/icon.png";
 
-const APP_VERSION = "Ver.2.2.0";
+const APP_VERSION = "Ver.2.3.0";
 const DEFAULT_AMOUNT_INCLUDE_KEYWORDS = [
   "交付申請額",
   "交付決定額",
@@ -239,6 +240,7 @@ function HelpGuide({ onClose }: { onClose: () => void }) {
                     <li>最終的に取得できない場合は ＭＳ 明朝 へフォールバック</li>
                   </ul>
                 </article>
+                <article className="release-card"><div><strong>Ver.2.3.0</strong><span>行政文書管理システム連携</span></div><ul><li>Edge拡張機能から送信した文書番号を共通項目へ挿入する機能を追加</li><li>未送信・期限切れ・データ破損時の案内を追加</li></ul></article>
                 <article className="release-card release-card-previous"><div><strong>Ver.1.3.1</strong><span>数値置換時のフォント修正</span></div><ul><li>行別項目と共通項目の数値置換時にテンプレートのフォントを維持</li></ul></article>
                 <article className="release-card release-card-previous"><div><strong>Ver.1.3.0</strong><span>共通項目の置換</span></div><ul><li>&lt;&lt;項目名&gt;&gt;による全文書共通項目をサポート</li></ul></article>
                 <article className="release-card release-card-previous"><div><strong>Ver.1.2.0</strong><span>設定とデータ除外の改善</span></div><ul><li>詳細設定を中央モーダルへ変更し、カテゴリ別に整理</li></ul></article>
@@ -325,6 +327,9 @@ export default function App() {
   const [commonValues, setCommonValues] = useState<CommonValues>({});
   const [commonDraft, setCommonDraft] = useState<CommonValues>({});
   const [commonOpen, setCommonOpen] = useState(false);
+  const [documentNumberBusy, setDocumentNumberBusy] = useState(false);
+  const [documentNumberNotice, setDocumentNumberNotice] = useState("");
+  const [documentNumberError, setDocumentNumberError] = useState("");
   const [isFirstSetup] = useState(() => localStorage.getItem("wordBatchSetupCompleted") !== "1");
   const pendingTemplateRef = useRef<string | null>(null);
   const pendingDataRef = useRef<string | null>(null);
@@ -416,6 +421,38 @@ export default function App() {
   }, [preview?.columns.join("|")]);
 
   const commonFields = templateInspection?.common_fields ?? [];
+  const insertDocumentNumber = async () => {
+    setDocumentNumberBusy(true);
+    setDocumentNumberNotice("");
+    setDocumentNumberError("");
+    try {
+      const record = await invoke<DocumentNumberRecord>("read_document_number");
+      const capturedAt = Date.parse(record.capturedAt);
+      if (!Number.isFinite(capturedAt)) {
+        throw new Error("文書番号の取得日時を確認できません。Edge拡張機能から再送信してください。");
+      }
+      const ageMs = Date.now() - capturedAt;
+      if (ageMs < 0 || ageMs > 30 * 60 * 1000) {
+        throw new Error("保存されている文書番号は取得から30分以上経過しています。対象の起案画面から再送信してください。");
+      }
+
+      const current = commonDraft["文書番号"]?.trim() ?? "";
+      if (current && current !== record.documentNumber) {
+        const shouldReplace = window.confirm(
+          `文書番号は既に入力されています。\n\n現在：${current}\n取得：${record.documentNumber}\n\n取得した番号に置き換えますか？`,
+        );
+        if (!shouldReplace) return;
+      }
+
+      setCommonDraft((values) => ({ ...values, 文書番号: record.documentNumber }));
+      setDocumentNumberNotice(`文書番号「${record.documentNumber}」を挿入しました。`);
+    } catch (caught) {
+      setDocumentNumberError(caught instanceof Error ? caught.message : String(caught));
+    } finally {
+      setDocumentNumberBusy(false);
+    }
+  };
+
   const missingCommonFields = commonFields.filter((name) => !commonValues[name]?.trim());
   const commonCompletedCount = commonFields.length - missingCommonFields.length;
   const canRun = Boolean(
@@ -808,6 +845,12 @@ export default function App() {
         <div className="overlay center-overlay" onMouseDown={() => setCommonOpen(false)}>
           <section className="common-modal" role="dialog" aria-modal="true" aria-labelledby="common-title" onMouseDown={(event)=>event.stopPropagation()}>
             <div className="drawer-head"><div><h2 id="common-title">共通項目の入力</h2><p>&lt;&lt;項目名&gt;&gt;へ、すべての文書で共通する文字を挿入します。</p></div><button className="icon-button" onClick={()=>setCommonOpen(false)} aria-label="共通項目入力を閉じる"><X size={18} /></button></div>
+            <div className="document-number-link">
+              <div><strong>行政文書管理システム連携</strong><small>Edge拡張機能から送信した文書番号を「文書番号」へ挿入します。</small></div>
+              <button type="button" onClick={insertDocumentNumber} disabled={documentNumberBusy}><Download size={16} />{documentNumberBusy ? "読込中…" : "文書番号を挿入"}</button>
+            </div>
+            {documentNumberNotice && <p className="document-number-message success" role="status">{documentNumberNotice}</p>}
+            {documentNumberError && <p className="document-number-message error" role="alert">{documentNumberError}</p>}
             <div className="common-form">{commonFields.map(name=><label key={name}><span>{name}</span><input autoFocus={name===commonFields[0]} value={commonDraft[name] ?? ""} placeholder={`${name}`} onChange={(event)=>setCommonDraft(current=>({ ...current, [name]: event.target.value }))} /></label>)}</div>
             <div className="common-actions"><button onClick={()=>setCommonOpen(false)}>キャンセル</button><button className="primary" disabled={commonFields.some(name=>!commonDraft[name]?.trim())} onClick={()=>{ setCommonValues(commonDraft); setCommonOpen(false); }}>保存</button></div>
           </section>

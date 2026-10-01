@@ -433,3 +433,8 @@ button:focus-visible,input:focus-visible,select:focus-visible,.table-scroll:focu
   background:var(--theme-tint)!important;
   color:var(--blue)!important;
 }
+
+/* Administrative document number integration */
+.document-number-link{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:0 18px 12px;padding:13px 14px;border:1px solid var(--separator);border-radius:14px;background:var(--surface-solid)}
+.document-number-link>div{display:flex;min-width:0;flex-direction:column;gap:3px}.document-number-link strong{font-size:13px}.document-number-link small{color:var(--secondary);font-size:11px;line-height:1.45}.document-number-link button{display:inline-flex;flex:0 0 auto;align-items:center;justify-content:center;gap:7px;min-height:40px;padding:8px 13px;border:1px solid var(--separator);border-radius:12px;background:var(--surface-solid);color:var(--text);font-weight:650;cursor:pointer}.document-number-link button:hover:not(:disabled){border-color:var(--theme-edge);box-shadow:var(--theme-hover-shadow);transform:translateY(-1px)}.document-number-link button:disabled{cursor:not-allowed;opacity:.58}.document-number-message{margin:0 18px 12px;padding:10px 12px;border:1px solid transparent;border-radius:12px;font-size:12px;line-height:1.55}.document-number-message.success{border-color:rgba(48,170,88,.3);background:rgba(48,170,88,.1);color:var(--text)}.document-number-message.error{border-color:rgba(220,56,72,.34);background:rgba(220,56,72,.1);color:var(--text)}
+@media(max-width:620px){.document-number-link{align-items:stretch;flex-direction:column}.document-number-link button{width:100%}}

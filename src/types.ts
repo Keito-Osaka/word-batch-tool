@@ -76,3 +76,11 @@ export interface TemplateInspection {
   malformed_common_placeholders: string[];
 }
 export type CommonValues = Record<string, string>;
+
+export type DocumentNumberRecord = {
+  version: number;
+  documentNumber: string;
+  source: string;
+  capturedAt: string;
+  path: string;
+};
