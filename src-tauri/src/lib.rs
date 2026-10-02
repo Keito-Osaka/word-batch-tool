@@ -1,5 +1,25 @@
 mod edge_integration;
-use edge_integration::*;
+
+
+#[tauri::command]
+fn get_edge_integration_status() -> Result<serde_json::Value, String> {
+    edge_integration::get_edge_integration_status()
+}
+
+#[tauri::command]
+async fn check_edge_integration() -> Result<serde_json::Value, String> {
+    edge_integration::check_edge_integration().await
+}
+
+#[tauri::command]
+fn open_edge_integration_setup() -> Result<(), String> {
+    edge_integration::open_edge_integration_setup()
+}
+
+#[tauri::command]
+fn repair_edge_integration(app: tauri::AppHandle) -> Result<(), String> {
+    edge_integration::repair_edge_integration(app)
+}
 use serde::Deserialize;
 use serde_json::Value;
 use std::{
