@@ -1,4 +1,5 @@
 mod edge_integration;
+use edge_integration::*;
 use serde::Deserialize;
 use serde_json::Value;
 use std::{
@@ -433,10 +434,10 @@ pub fn run() {
             open_output_folder,
             read_document_number,
             request_current_document_context,
-            edge_integration::get_edge_integration_status,
-            edge_integration::check_edge_integration,
-            edge_integration::open_edge_integration_setup,
-            edge_integration::repair_edge_integration
+            get_edge_integration_status,
+            check_edge_integration,
+            open_edge_integration_setup,
+            repair_edge_integration
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
