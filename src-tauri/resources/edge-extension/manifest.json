@@ -1,0 +1,34 @@
+{
+  "manifest_version": 3,
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAzfLdcRssssffUV5YkUzk6CxLCkKTE21Osz10KQdL09zJbWzpA0jrMYcVcFu2dHUFx3W+2yX5jzdhWXow56IdKHbTw1gE/osZvlcnijZoTzBxPfk+8aVORC/D7M7A9IXoJSbtLokFoC2JEDQsKKCSAQQq3kbgUOhGRA8kTbeb6yA1OyGe/BU7gKNY4o+S5Q78OdLXdQKz0x1rFaIzNWEeQWyVHxEHqYoIKUnR1BHeUQ7aeaWDsy5TZoPIjcCxml/iotOJfIBnehvzWc0q0+bGmYbrSrgSEbd1urdkGbF7daV+z7KBid0kh/Y9nMfiCnwHR/R4wGER0wc6ddAPORgTJQIDAQAB",
+  "name": "Word文書一括作成ツール連携",
+  "version": "3.0.0",
+  "description": "行政文書管理システムから文書番号を取得し、Word文書一括作成ツールへ送信します。",
+  "permissions": [
+    "nativeMessaging",
+    "storage",
+    "tabs",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://gyobunkanri.lan.pref.osaka.jp/PanFocus/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://gyobunkanri.lan.pref.osaka.jp/PanFocus/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "all_frames": true,
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  }
+}

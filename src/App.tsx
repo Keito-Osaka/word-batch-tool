@@ -22,7 +22,7 @@ import {
 import type { DataPreview, DroppedPathClassification, GenerateResult, GenerationProgress, Settings, TemplateInspection, CommonValues, DocumentNumberRecord } from "./types";
 import appIconUrl from "../src-tauri/icons/icon.png";
 
-const APP_VERSION = "Ver.2.3.0";
+const APP_VERSION = "Ver.3.0.0";
 const DEFAULT_AMOUNT_INCLUDE_KEYWORDS = [
   "交付申請額",
   "交付決定額",
@@ -240,7 +240,7 @@ function HelpGuide({ onClose }: { onClose: () => void }) {
                     <li>最終的に取得できない場合は ＭＳ 明朝 へフォールバック</li>
                   </ul>
                 </article>
-                <article className="release-card"><div><strong>Ver.2.3.0</strong><span>行政文書管理システム連携</span></div><ul><li>Edge拡張機能から送信した文書番号を共通項目へ挿入する機能を追加</li><li>未送信・期限切れ・データ破損時の案内を追加</li></ul></article>
+                <article className="release-card"><div><strong>Ver.3.0.0</strong><span>行政文書管理システム連携</span></div><ul><li>Edge拡張機能から送信した文書番号を共通項目へ挿入する機能を追加</li><li>未送信・期限切れ・データ破損時の案内を追加</li></ul></article>
                 <article className="release-card release-card-previous"><div><strong>Ver.1.3.1</strong><span>数値置換時のフォント修正</span></div><ul><li>行別項目と共通項目の数値置換時にテンプレートのフォントを維持</li></ul></article>
                 <article className="release-card release-card-previous"><div><strong>Ver.1.3.0</strong><span>共通項目の置換</span></div><ul><li>&lt;&lt;項目名&gt;&gt;による全文書共通項目をサポート</li></ul></article>
                 <article className="release-card release-card-previous"><div><strong>Ver.1.2.0</strong><span>設定とデータ除外の改善</span></div><ul><li>詳細設定を中央モーダルへ変更し、カテゴリ別に整理</li></ul></article>
@@ -301,7 +301,9 @@ const loadTheme = (): ThemeName => { const value = localStorage.getItem("wordBat
 export default function App() {
   const [theme, setTheme] = useState<ThemeName>(loadTheme);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [settingsSection, setSettingsSection] = useState<"appearance" | "filename" | "exclude" | "numeric" | "pdf">("filename");
+  const [integrationStatus, setIntegrationStatus] = useState<{ configured: boolean; lastResponseAt: string | null }>({ configured: false, lastResponseAt: null });
+  const [integrationMessage, setIntegrationMessage] = useState("");
+  const [settingsSection, setSettingsSection] = useState<"appearance" | "integration" | "filename" | "exclude" | "numeric" | "pdf">("filename");
   const [helpOpen, setHelpOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewTab, setPreviewTab] = useState<"included" | "excluded">("included");
@@ -420,6 +422,11 @@ export default function App() {
     }));
   }, [preview?.columns.join("|")]);
 
+  const refreshIntegrationStatus = async () => { try { setIntegrationStatus(await invoke("get_edge_integration_status")); } catch { setIntegrationStatus({ configured: false, lastResponseAt: null }); } };
+  useEffect(() => { void refreshIntegrationStatus(); }, []);
+  const checkIntegration = async () => { setIntegrationMessage("接続を確認しています…"); try { setIntegrationStatus(await invoke("check_edge_integration")); setIntegrationMessage("Microsoft Edge連携から応答がありました。"); } catch (e) { setIntegrationMessage(String(e)); } };
+  const setupIntegration = async () => { try { await invoke("open_edge_integration_setup"); setIntegrationMessage("Edgeの拡張機能画面で、開いたフォルダーを「展開して読み込み」から選択してください。"); } catch (e) { setIntegrationMessage(String(e)); } };
+  const repairIntegration = async () => { try { await invoke("repair_edge_integration"); await refreshIntegrationStatus(); setIntegrationMessage("連携設定を修復しました。"); } catch (e) { setIntegrationMessage(String(e)); } };
   const commonFields = templateInspection?.common_fields ?? [];
   const insertDocumentNumber = async () => {
     setDocumentNumberBusy(true);
@@ -871,13 +878,14 @@ export default function App() {
             <div className="drawer-head"><div><h2 id="settings-title">詳細設定</h2><p>変更内容は自動保存されます。</p></div><button className="icon-button" onClick={() => setSettingsOpen(false)} aria-label="詳細設定を閉じる"><X size={18} /></button></div>
             <div className="settings-layout">
               <nav className="settings-nav">
-                <button className={settingsSection === "appearance" ? "active" : ""} onClick={() => setSettingsSection("appearance")}>テーマ</button>
+                <button className={settingsSection === "appearance" ? "active" : ""} onClick={() => setSettingsSection("appearance")}>テーマ</button><button className={settingsSection === "integration" ? "active" : ""} onClick={() => setSettingsSection("integration")}>Edge連携</button>
                 <button className={settingsSection === "filename" ? "active" : ""} onClick={() => setSettingsSection("filename")}>ファイル名</button>
                 <button className={settingsSection === "exclude" ? "active" : ""} onClick={() => setSettingsSection("exclude")}>行の除外</button>
                 <button className={settingsSection === "numeric" ? "active" : ""} onClick={() => setSettingsSection("numeric")}>数値の整形</button>
                 <button className={settingsSection === "pdf" ? "active" : ""} onClick={() => setSettingsSection("pdf")}>PDF</button>
               </nav>
               <div className="settings-content">
+                {settingsSection === "integration" && (<section className="setting-panel edge-integration-panel"><h3>Microsoft Edge連携</h3><div className="integration-status-list"><p><strong>連携設定：</strong><span>{integrationStatus.configured ? "完了" : "未完了"}</span></p><p><strong>最終応答：</strong><span>{integrationStatus.lastResponseAt ? new Date(integrationStatus.lastResponseAt).toLocaleString("ja-JP") : "未確認"}</span></p></div><p className="setting-note">接続確認では行政文書管理システムの文書内容を読み取りません。</p><div className="integration-actions"><button type="button" onClick={checkIntegration}>接続を確認</button><button type="button" onClick={setupIntegration}>Edge連携を設定</button><button type="button" onClick={repairIntegration}>連携を修復</button></div>{integrationMessage && <p className="integration-message">{integrationMessage}</p>}</section>)}
                 {settingsSection === "appearance" && (<section className="setting-panel"><h3>カラーテーマ</h3><p className="theme-description">画面の配色を選択します。選択したテーマは次回起動時も維持されます。</p><div className="theme-choice-grid">{[{value:"light",label:"ライト",detail:"明るく標準的な配色",colors:["#f5f5f7","#fff","#007aff"]},{value:"dark",label:"ダーク",detail:"暗い背景と白い影",colors:["#0c0c0e","#1c1c1e","#0a84ff"]},{value:"sepia",label:"セピア",detail:"温かく落ち着いた配色",colors:["#f3eee4","#fffaf0","#9a641f"]},{value:"mist",label:"ミスト",detail:"淡い青灰色の配色",colors:["#edf3f7","#f9fcfe","#3979a8"]}].map(item=><button type="button" key={item.value} className={`theme-choice ${theme===item.value?"selected":""}`} onClick={()=>setTheme(item.value as ThemeName)}><span className="theme-swatch">{item.colors.map(color=><i key={color} style={{background:color}} />)}</span><span><strong>{item.label}</strong><small>{item.detail}</small></span><span className="theme-check">{theme===item.value?"✓":""}</span></button>)}</div></section>)}
                 {settingsSection === "filename" && <section className="setting-panel"><h3>ファイル名</h3>
                   <div className="serial-row"><label className="check"><input type="checkbox" checked={settings.addSerialNumber} disabled={settings.filenameKeys.length === 0} onChange={(event) => setSettings((current) => ({ ...current, addSerialNumber: event.target.checked }))} /> 連番を付ける</label></div><div className="detail-digit-stepper"><span>桁数：</span><div className="digit-stepper"><input className="digit-input" type="number" min={1} max={6} value={settings.serialDigits} onChange={(event) => { const value = event.target.valueAsNumber; if (Number.isFinite(value)) setSettings((current) => ({ ...current, serialDigits: Math.min(6, Math.max(1, Math.trunc(value))) })); }} /><button type="button" disabled={settings.serialDigits <= 1} onClick={() => setSettings((current) => ({ ...current, serialDigits: Math.max(1, current.serialDigits - 1) }))}>−</button><button type="button" disabled={settings.serialDigits >= 6} onClick={() => setSettings((current) => ({ ...current, serialDigits: Math.min(6, current.serialDigits + 1) }))}>＋</button></div></div>

@@ -1,0 +1,1 @@
+(()=>{if(window.top!==window)return;let busy=false;async function check(){if(busy||document.visibilityState!=="visible")return;busy=true;try{await chrome.runtime.sendMessage({type:"CHECK_APP_REQUEST"})}catch{}finally{busy=false}}setInterval(check,750);addEventListener("focus",check);check()})();

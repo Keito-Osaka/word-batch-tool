@@ -440,3 +440,5 @@ button:focus-visible,input:focus-visible,select:focus-visible,.table-scroll:focu
 @media(max-width:620px){.document-number-link{align-items:stretch;flex-direction:column}.document-number-link button{width:100%}}
 
 .document-number-message{display:block!important;width:auto!important;max-width:none!important;background-image:none!important;-webkit-mask-image:none!important;mask-image:none!important;overflow:visible!important;contain:none!important;box-shadow:none!important}.document-number-message.success{border:1px solid rgba(48,170,88,.30)!important;background:rgba(48,170,88,.10)!important}.document-number-message.error{border:1px solid rgba(220,56,72,.34)!important;background:rgba(220,56,72,.10)!important}.document-number-message::before,.document-number-message::after{display:none!important;content:none!important}
+
+.integration-status-list p{display:flex;justify-content:space-between;padding:12px;border:1px solid #d8dee8;border-radius:10px}.integration-actions{display:flex;gap:8px;flex-wrap:wrap}.integration-message{white-space:pre-wrap;padding:10px;background:rgba(0,122,255,.08);border-radius:10px}

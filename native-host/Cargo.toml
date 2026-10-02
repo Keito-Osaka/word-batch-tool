@@ -1,0 +1,8 @@
+[package]
+name="word-batch-native-host"
+version = "3.0.0"
+edition="2021"
+[dependencies]
+chrono={version="0.4",features=["clock","serde"]}
+serde={version="1",features=["derive"]}
+serde_json="1"
