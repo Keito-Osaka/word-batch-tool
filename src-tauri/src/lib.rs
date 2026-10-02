@@ -225,6 +225,117 @@ fn read_document_number() -> Result<Value, String> {
     }))
 }
 
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct DocumentContextBridgeResponse {
+    version: u32,
+    #[serde(rename = "type")]
+    kind: String,
+    request_id: String,
+    ok: bool,
+    #[serde(default)]
+    error: Option<String>,
+    #[serde(default)]
+    document_number: Option<String>,
+    #[serde(default)]
+    document_title: Option<String>,
+    #[serde(default)]
+    page_type: Option<String>,
+    #[serde(default)]
+    page_title: Option<String>,
+    #[serde(default)]
+    enforcement_date: Option<String>,
+    #[serde(default)]
+    source: Option<String>,
+    #[serde(default)]
+    captured_at: Option<String>,
+}
+
+fn document_bridge_directory() -> Result<PathBuf, String> {
+    let local_app_data = std::env::var_os("LOCALAPPDATA")
+        .ok_or_else(|| "文書情報連携の保存先を取得できませんでした。".to_string())?;
+    Ok(PathBuf::from(local_app_data).join("WordBatchTool").join("integration"))
+}
+
+fn create_bridge_request_id() -> String {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let nanos = SystemTime::now().duration_since(UNIX_EPOCH)
+        .map(|value| value.as_nanos()).unwrap_or_default();
+    format!("{}-{}", std::process::id(), nanos)
+}
+
+fn validate_bridge_response(response: DocumentContextBridgeResponse, request_id: &str) -> Result<Value, String> {
+    if response.version != 1 || response.kind != "current-document-context-result" || response.request_id != request_id {
+        return Err("文書情報連携の応答形式が正しくありません。".to_string());
+    }
+    if !response.ok {
+        return Err(response.error.unwrap_or_else(|| "Microsoft Edgeから文書情報を取得できませんでした。".to_string()));
+    }
+    let document_number = response.document_number.unwrap_or_default().trim().to_string();
+    if document_number.is_empty() || document_number.chars().count() > 100 {
+        return Err("取得した文書番号の形式が正しくありません。".to_string());
+    }
+    if response.source.as_deref() != Some("panfocus") {
+        return Err("文書情報の取得元を確認できませんでした。".to_string());
+    }
+    Ok(serde_json::json!({
+        "version": 2,
+        "requestId": request_id,
+        "documentNumber": document_number,
+        "documentTitle": response.document_title,
+        "pageType": response.page_type,
+        "pageTitle": response.page_title,
+        "enforcementDate": response.enforcement_date,
+        "source": response.source,
+        "capturedAt": response.captured_at,
+        "path": document_bridge_directory()?.join("bridge-response.json").to_string_lossy(),
+    }))
+}
+
+#[tauri::command]
+async fn request_current_document_context() -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(|| {
+        use std::time::{Duration, Instant};
+        let directory = document_bridge_directory()?;
+        fs::create_dir_all(&directory).map_err(|e| format!("連携フォルダーを作成できませんでした: {e}"))?;
+        let request_path = directory.join("bridge-request.json");
+        let response_path = directory.join("bridge-response.json");
+        let _ = fs::remove_file(&response_path);
+        let request_id = create_bridge_request_id();
+        let request = serde_json::json!({
+            "version": 1,
+            "type": "get-current-document-context",
+            "requestId": request_id,
+            "createdAtUnixMs": std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)
+                .map(|value| value.as_millis()).unwrap_or_default(),
+        });
+        let temporary_path = request_path.with_extension("json.tmp");
+        fs::write(&temporary_path, serde_json::to_vec_pretty(&request).map_err(|e| e.to_string())?)
+            .map_err(|e| format!("文書情報の取得要求を書き込めませんでした: {e}"))?;
+        if request_path.exists() { let _ = fs::remove_file(&request_path); }
+        fs::rename(&temporary_path, &request_path)
+            .map_err(|e| format!("文書情報の取得要求を確定できませんでした: {e}"))?;
+        let started = Instant::now();
+        while started.elapsed() < Duration::from_secs(20) {
+            if response_path.exists() {
+                let bytes = fs::read(&response_path).map_err(|e| e.to_string())?;
+                if let Ok(response) = serde_json::from_slice::<DocumentContextBridgeResponse>(&bytes) {
+                    if response.request_id == request_id {
+                        let result = validate_bridge_response(response, &request_id);
+                        let _ = fs::remove_file(&request_path);
+                        let _ = fs::remove_file(&response_path);
+                        return result;
+                    }
+                }
+            }
+            std::thread::sleep(Duration::from_millis(100));
+        }
+        let _ = fs::remove_file(&request_path);
+        Err("Microsoft Edgeから応答がありませんでした。対象文書を表示し、連携ブリッジと拡張機能が導入されていることを確認してください。".to_string())
+    }).await.map_err(|e| format!("文書情報取得処理に失敗しました: {e}"))?
+}
+
 #[tauri::command]
 fn classify_dropped_paths(paths: Vec<String>) -> Value {
     let mut template: Option<String> = None;
@@ -319,7 +430,8 @@ pub fn run() {
             generate_documents,
             classify_dropped_paths,
             open_output_folder,
-            read_document_number
+            read_document_number,
+            request_current_document_context
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

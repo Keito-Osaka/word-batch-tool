@@ -78,6 +78,7 @@ export interface TemplateInspection {
 export type CommonValues = Record<string, string>;
 
 export type DocumentNumberRecord = {
+  requestId?: string;
   version: number;
   documentNumber: string;
   source: string;
