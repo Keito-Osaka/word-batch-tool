@@ -301,7 +301,7 @@ const loadTheme = (): ThemeName => { const value = localStorage.getItem("wordBat
 export default function App() {
   const [theme, setTheme] = useState<ThemeName>(loadTheme);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [integrationStatus, setIntegrationStatus] = useState<{ configured: boolean; lastResponseAt: string | null }>({ configured: false, lastResponseAt: null });
+  const [integrationStatus, setIntegrationStatus] = useState<{ configured: boolean; lastResponseAt: string | number | null }>({ configured: false, lastResponseAt: null });
   const [integrationMessage, setIntegrationMessage] = useState("");
   const [settingsSection, setSettingsSection] = useState<"appearance" | "integration" | "filename" | "exclude" | "numeric" | "pdf">("filename");
   const [helpOpen, setHelpOpen] = useState(false);
@@ -422,51 +422,26 @@ export default function App() {
     }));
   }, [preview?.columns.join("|")]);
 
+  const formatIntegrationResponse = (value: string | number | null) => {
+    if (value === null || value === undefined || value === "") return "未確認";
+    const numeric = typeof value === "string" && /^\d+$/.test(value) ? Number(value) : value;
+    const date = new Date(numeric);
+    if (Number.isNaN(date.getTime())) return "未確認";
+    return new Intl.DateTimeFormat("ja-JP", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }).format(date);
+  };
+  const [integrationGuideOpen, setIntegrationGuideOpen] = useState(false);
+  const [extensionPath, setExtensionPath] = useState("");
+  const [pathCopied, setPathCopied] = useState(false);
   const refreshIntegrationStatus = async () => { try { setIntegrationStatus(await invoke("get_edge_integration_status")); } catch { setIntegrationStatus({ configured: false, lastResponseAt: null }); } };
   useEffect(() => { void refreshIntegrationStatus(); }, []);
   const checkIntegration = async () => { setIntegrationMessage("接続を確認しています…"); try { setIntegrationStatus(await invoke("check_edge_integration")); setIntegrationMessage("Microsoft Edge連携から応答がありました。"); } catch (e) { setIntegrationMessage(String(e)); } };
-  const setupIntegration = async () => { try { await invoke("open_edge_integration_setup"); setIntegrationMessage("Edgeの拡張機能画面で、開いたフォルダーを「展開して読み込み」から選択してください。"); } catch (e) { setIntegrationMessage(String(e)); } };
-  const repairIntegration = async () => { try { await invoke("repair_edge_integration"); await refreshIntegrationStatus(); setIntegrationMessage("連携設定を修復しました。"); } catch (e) { setIntegrationMessage(String(e)); } };
-  const commonFields = templateInspection?.common_fields ?? [];
-  const insertDocumentNumber = async () => {
-    setDocumentNumberBusy(true);
-    setDocumentNumberNotice("");
-    setDocumentNumberError("");
+  const setupIntegration = async () => {
+    setIntegrationGuideOpen(true);
     try {
-      const record = await invoke<DocumentNumberRecord>("request_current_document_context");
-      const capturedAt = Date.parse(record.capturedAt);
-      if (!Number.isFinite(capturedAt)) {
-        throw new Error("文書番号の取得日時を確認できません。Edge拡張機能から再送信してください。");
-      }
-      const ageMs = Date.now() - capturedAt;
-      if (ageMs < 0 || ageMs > 30 * 60 * 1000) {
-        throw new Error("保存されている文書番号は取得から30分以上経過しています。対象の起案画面から再送信してください。");
-      }
-
-      const current = commonDraft["文書番号"]?.trim() ?? "";
-      if (current && current !== record.documentNumber) {
-        const shouldReplace = window.confirm(
-          `文書番号は既に入力されています。\n\n現在：${current}\n取得：${record.documentNumber}\n\n取得した番号に置き換えますか？`,
-        );
-        if (!shouldReplace) return;
-      }
-
-      const shouldInsertEnforcementDate = commonFields.includes("施行日") && Boolean(record.enforcementDate?.trim());
-      setCommonDraft((values) => ({
-        ...values,
-        文書番号: record.documentNumber,
-        ...(shouldInsertEnforcementDate ? { 施行日: record.enforcementDate!.trim() } : {}),
-      }));
-      const insertedItems = [
-        `文書番号「${record.documentNumber}」`,
-        ...(shouldInsertEnforcementDate ? [`施行日「${record.enforcementDate!.trim()}」`] : []),
-      ];
-      setDocumentNumberNotice(`${insertedItems.join("、")}を挿入しました。`);
-    } catch (caught) {
-      setDocumentNumberError(caught instanceof Error ? caught.message : String(caught));
-    } finally {
-      setDocumentNumberBusy(false);
-    }
+      const path = await invoke<string>("get_edge_extension_path");
+      setExtensionPath(path);
+      setIntegrationMessage("");
+    } catch (e) { setIntegrationMessage(String(e)); }
   };
 
   const missingCommonFields = commonFields.filter((name) => !commonValues[name]?.trim());
@@ -885,7 +860,15 @@ export default function App() {
                 <button className={settingsSection === "pdf" ? "active" : ""} onClick={() => setSettingsSection("pdf")}>PDF</button>
               </nav>
               <div className="settings-content">
-                {settingsSection === "integration" && (<section className="setting-panel edge-integration-panel"><h3>Microsoft Edge連携</h3><div className="integration-status-list"><p><strong>連携設定：</strong><span>{integrationStatus.configured ? "完了" : "未完了"}</span></p><p><strong>最終応答：</strong><span>{integrationStatus.lastResponseAt ? new Date(integrationStatus.lastResponseAt).toLocaleString("ja-JP") : "未確認"}</span></p></div><p className="setting-note">接続確認では行政文書管理システムの文書内容を読み取りません。</p><div className="integration-actions"><button type="button" onClick={checkIntegration}>接続を確認</button><button type="button" onClick={setupIntegration}>Edge連携を設定</button><button type="button" onClick={repairIntegration}>連携を修復</button></div>{integrationMessage && <p className="integration-message">{integrationMessage}</p>}</section>)}
+                {settingsSection === "integration" && (
+<section className="setting-panel edge-integration-panel">
+  <div className="integration-heading"><div><h3>行政文書管理システム連携</h3><p>文書番号と施行日を共通項目へ取り込むための設定です。</p></div><span className={`integration-badge ${integrationStatus.configured ? "is-ready" : ""}`}>{integrationStatus.configured ? "設定済み" : "要設定"}</span></div>
+  <div className="integration-status-card"><div className="integration-status-dot"/><div><strong>{integrationStatus.configured ? "連携設定は完了しています" : "初回設定が必要です"}</strong><span>最終応答　{formatIntegrationResponse(integrationStatus.lastResponseAt)}</span></div><button type="button" className="secondary-button" onClick={checkIntegration}>接続を確認</button></div>
+  <div className="integration-section"><div><h4>初回設定</h4><p>Microsoft Edgeに行政文書管理システム連携機能を追加します。</p></div><button type="button" className="primary-button" onClick={setupIntegration}>行政文書管理システムと連携</button></div>
+  {integrationGuideOpen && <div className="integration-guide"><ol><li>［パスをコピー］を押します。</li><li>Microsoft Edgeの拡張機能画面を開き、開発者モードをオンにします。</li><li>［展開して読み込み］を押し、コピーしたパスを貼り付けます。</li></ol><label>拡張機能フォルダー</label><div className="integration-path-row"><code>{extensionPath || "パスを取得しています…"}</code><button type="button" className="secondary-button" disabled={!extensionPath} onClick={copyExtensionPath}>{pathCopied ? "コピーしました ✓" : "パスをコピー"}</button></div><button type="button" className="secondary-button edge-open-button" onClick={openEdgeExtensions}>Microsoft Edgeの拡張機能画面を開く</button></div>}
+  <details className="integration-troubleshooting"><summary>問題がある場合</summary><p>以前は利用できていたのに接続できなくなった場合、連携用ファイルとWindowsの登録を初期状態へ戻します。作成した文書やアプリ設定は削除されません。</p><button type="button" className="danger-secondary-button" onClick={repairIntegration}>連携設定を修復</button></details>
+  {integrationMessage && <p className="integration-message" role="status">{integrationMessage}</p>}
+</section>)}
                 {settingsSection === "appearance" && (<section className="setting-panel"><h3>カラーテーマ</h3><p className="theme-description">画面の配色を選択します。選択したテーマは次回起動時も維持されます。</p><div className="theme-choice-grid">{[{value:"light",label:"ライト",detail:"明るく標準的な配色",colors:["#f5f5f7","#fff","#007aff"]},{value:"dark",label:"ダーク",detail:"暗い背景と白い影",colors:["#0c0c0e","#1c1c1e","#0a84ff"]},{value:"sepia",label:"セピア",detail:"温かく落ち着いた配色",colors:["#f3eee4","#fffaf0","#9a641f"]},{value:"mist",label:"ミスト",detail:"淡い青灰色の配色",colors:["#edf3f7","#f9fcfe","#3979a8"]}].map(item=><button type="button" key={item.value} className={`theme-choice ${theme===item.value?"selected":""}`} onClick={()=>setTheme(item.value as ThemeName)}><span className="theme-swatch">{item.colors.map(color=><i key={color} style={{background:color}} />)}</span><span><strong>{item.label}</strong><small>{item.detail}</small></span><span className="theme-check">{theme===item.value?"✓":""}</span></button>)}</div></section>)}
                 {settingsSection === "filename" && <section className="setting-panel"><h3>ファイル名</h3>
                   <div className="serial-row"><label className="check"><input type="checkbox" checked={settings.addSerialNumber} disabled={settings.filenameKeys.length === 0} onChange={(event) => setSettings((current) => ({ ...current, addSerialNumber: event.target.checked }))} /> 連番を付ける</label></div><div className="detail-digit-stepper"><span>桁数：</span><div className="digit-stepper"><input className="digit-input" type="number" min={1} max={6} value={settings.serialDigits} onChange={(event) => { const value = event.target.valueAsNumber; if (Number.isFinite(value)) setSettings((current) => ({ ...current, serialDigits: Math.min(6, Math.max(1, Math.trunc(value))) })); }} /><button type="button" disabled={settings.serialDigits <= 1} onClick={() => setSettings((current) => ({ ...current, serialDigits: Math.max(1, current.serialDigits - 1) }))}>−</button><button type="button" disabled={settings.serialDigits >= 6} onClick={() => setSettings((current) => ({ ...current, serialDigits: Math.min(6, current.serialDigits + 1) }))}>＋</button></div></div>

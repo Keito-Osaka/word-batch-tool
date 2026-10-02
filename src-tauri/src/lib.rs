@@ -12,6 +12,11 @@ async fn check_edge_integration() -> Result<serde_json::Value, String> {
 }
 
 #[tauri::command]
+fn get_edge_extension_path() -> Result<String, String> {
+    edge_integration::get_edge_extension_path()
+}
+
+#[tauri::command]
 fn open_edge_integration_setup() -> Result<(), String> {
     edge_integration::open_edge_integration_setup()
 }
@@ -457,7 +462,8 @@ pub fn run() {
             get_edge_integration_status,
             check_edge_integration,
             open_edge_integration_setup,
-            repair_edge_integration
+            repair_edge_integration,
+            get_edge_extension_path
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
