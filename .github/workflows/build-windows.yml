@@ -271,12 +271,34 @@ jobs:
             if (-not (Test-Path $item)) { throw "Generated icon is missing: $item" }
           }
 
+      - name: Build Native Messaging bridge
+        working-directory: native-host
+        run: cargo build --release
+      - name: Stage integrated resources
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force src-tauri/resources/native-messaging | Out-Null
+          Copy-Item native-host/target/release/word-batch-native-host.exe src-tauri/resources/native-messaging/word-batch-native-host.exe -Force
+      - name: Verify integrated Tauri resources
+        shell: pwsh
+        run: |
+          $required = @(
+            "src-tauri/resources/backend/word-batch-backend/word-batch-backend.exe",
+            "src-tauri/resources/native-messaging/word-batch-native-host.exe",
+            "src-tauri/resources/edge-extension/manifest.json",
+            "src-tauri/resources/edge-extension/background.js",
+            "src-tauri/resources/edge-extension/content.js"
+          )
+          foreach ($path in $required) {
+            if (-not (Test-Path -LiteralPath $path)) { throw "Required integrated resource is missing: $path" }
+          }
+          Get-ChildItem src-tauri/resources -Recurse | Select-Object FullName, Length
       - name: Build Tauri installer
         uses: tauri-apps/tauri-action@v0
       - name: Upload Windows installer
         uses: actions/upload-artifact@v7
         with:
-          name: WordBatchTool-Windows-v2.3.0
+          name: WordBatchTool-Windows-v3.0.0
           path: src-tauri/target/release/bundle/nsis/*.exe
           retention-days: 7
           if-no-files-found: error      
