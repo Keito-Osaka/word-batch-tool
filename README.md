@@ -6,7 +6,7 @@ Tauri、React、TypeScriptによるデスクトップUIと、PythonによるWord
 
 ## Version
 
-**Ver.2.1.0 UI改善版**
+**Ver.2.3.0**
 
 ## 主な機能
 

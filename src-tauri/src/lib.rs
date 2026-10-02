@@ -170,6 +170,14 @@ struct DocumentNumberRecord {
     document_number: String,
     source: String,
     captured_at: String,
+    #[serde(default)]
+    document_title: Option<String>,
+    #[serde(default)]
+    page_type: Option<String>,
+    #[serde(default)]
+    page_title: Option<String>,
+    #[serde(default)]
+    enforcement_date: Option<String>,
 }
 
 #[tauri::command]
@@ -193,7 +201,7 @@ fn read_document_number() -> Result<Value, String> {
     let record: DocumentNumberRecord = serde_json::from_slice(&bytes)
         .map_err(|e| format!("文書番号の連携データが壊れています。Edge拡張機能から再送信してください: {e}"))?;
 
-    if record.version != 1 {
+    if record.version != 1 && record.version != 2 {
         return Err("対応していない文書番号データです。Edge拡張機能から再送信してください。".to_string());
     }
     let document_number = record.document_number.trim();
@@ -210,6 +218,10 @@ fn read_document_number() -> Result<Value, String> {
         "source": record.source,
         "capturedAt": record.captured_at,
         "path": path.to_string_lossy(),
+        "documentTitle": record.document_title,
+        "pageType": record.page_type,
+        "pageTitle": record.page_title,
+        "enforcementDate": record.enforcement_date,
     }))
 }
 

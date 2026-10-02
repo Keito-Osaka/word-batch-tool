@@ -444,8 +444,17 @@ export default function App() {
         if (!shouldReplace) return;
       }
 
-      setCommonDraft((values) => ({ ...values, 文書番号: record.documentNumber }));
-      setDocumentNumberNotice(`文書番号「${record.documentNumber}」を挿入しました。`);
+      const shouldInsertEnforcementDate = commonFields.includes("施行日") && Boolean(record.enforcementDate?.trim());
+      setCommonDraft((values) => ({
+        ...values,
+        文書番号: record.documentNumber,
+        ...(shouldInsertEnforcementDate ? { 施行日: record.enforcementDate!.trim() } : {}),
+      }));
+      const insertedItems = [
+        `文書番号「${record.documentNumber}」`,
+        ...(shouldInsertEnforcementDate ? [`施行日「${record.enforcementDate!.trim()}」`] : []),
+      ];
+      setDocumentNumberNotice(`${insertedItems.join("、")}を挿入しました。`);
     } catch (caught) {
       setDocumentNumberError(caught instanceof Error ? caught.message : String(caught));
     } finally {
@@ -846,7 +855,7 @@ export default function App() {
           <section className="common-modal" role="dialog" aria-modal="true" aria-labelledby="common-title" onMouseDown={(event)=>event.stopPropagation()}>
             <div className="drawer-head"><div><h2 id="common-title">共通項目の入力</h2><p>&lt;&lt;項目名&gt;&gt;へ、すべての文書で共通する文字を挿入します。</p></div><button className="icon-button" onClick={()=>setCommonOpen(false)} aria-label="共通項目入力を閉じる"><X size={18} /></button></div>
             <div className="document-number-link">
-              <div><strong>行政文書管理システム連携</strong><small>Edge拡張機能から送信した文書番号を「文書番号」へ挿入します。</small></div>
+              <div><strong>行政文書管理システム連携</strong><small>Edge拡張機能から送信した文書番号を挿入します。施行日を取得済みで、共通項目に「施行日」がある場合は同時に挿入します。</small></div>
               <button type="button" onClick={insertDocumentNumber} disabled={documentNumberBusy}><Download size={16} />{documentNumberBusy ? "読込中…" : "文書番号を挿入"}</button>
             </div>
             {documentNumberNotice && <p className="document-number-message success" role="status">{documentNumberNotice}</p>}

@@ -83,4 +83,8 @@ export type DocumentNumberRecord = {
   source: string;
   capturedAt: string;
   path: string;
+  documentTitle?: string;
+  pageType?: string;
+  pageTitle?: string;
+  enforcementDate?: string | null;
 };
